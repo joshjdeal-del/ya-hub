@@ -254,7 +254,8 @@ function vClock(){
   if(mgr())h+='<div class="card"><h2>Log time by hand</h2><div class="mut sm">For your own hours, or for a helper with no login (like Kevin). This time is for billing and job hours only and never counts as payroll.</div><button class="b alt" onclick="logForm()">Log hours</button></div>';
   var tk=today(),mine=S.entries.filter(function(e){return e.person_id===S.me.id&&ymd(e.start_at)===tk;}).reverse();
   var tot=mine.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);
-  h+='<div class="card"><h2>Today <span>'+hm(tot)+'</span></h2>'+(mine.length?'<div class="list">'+mine.map(entryRow).join('')+'</div>':'<div class="mut">Nothing yet today</div>')+'</div>';
+  var cp0=periodOf(today()),m0=summarize(S.me.id,cp0),wk0=m0.weeks[diffDays(cp0.start,today())>=7?1:0];
+  h+='<div class="card"><h2>Today <span>'+hm(tot)+'</span></h2><div class="mut sm" style="margin-bottom:6px">This week '+f2(wk0.hours)+' h · pay period '+f2(m0.worked)+' h</div>'+(mine.length?'<div class="list">'+mine.map(entryRow).join('')+'</div>':'<div class="mut">Nothing yet today</div>')+'</div>';
   var myTasks=S.tasks.filter(function(t){return t.status!=='done'&&(t.owner_id===S.me.id);}).slice(0,5);
   if(myTasks.length)h+='<div class="card"><h2>My tasks <button class="s" onclick="go(\'tasks\')">All</button></h2><div class="list">'+myTasks.map(taskRow).join('')+'</div></div>';
   h+='<div class="card"><h2>Time off & fixes</h2><div class="grid2"><button class="b alt" style="margin:0" onclick="leaveForm()">Time off / sick</button><button class="b alt" style="margin:0" onclick="fixForm(\'\')">Add missed time</button></div>'+
@@ -663,8 +664,10 @@ function tNow(){
     '<button class="s" style="margin-top:6px" onclick="entryForm(\''+e.id+'\')">Edit / clock out</button></div>';}).join('')+'</div>':'<div class="mut">Nobody is clocked in</div>')+'</div>';
   staff().forEach(function(p){var tk=today();var es=S.entries.filter(function(e){return e.person_id===p.id&&ymd(e.start_at)===tk;});
     var t=es.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);var first=es[0];
-    var m=summarize(p.id,PER||periodOf(today()));
-    h+='<div class="card"><h2>'+esc(p.name)+'</h2><div class="grid2"><div><div class="big">'+f2(t)+'</div><div class="mut sm">today'+(first?' · in '+tm(first.start_at):'')+'</div></div><div><div class="big">'+f2(m.worked)+'</div><div class="mut sm">this period</div></div></div>'+
+    var cp=periodOf(today()),m=summarize(p.id,cp),wk=m.weeks[diffDays(cp.start,today())>=7?1:0];
+    h+='<div class="card"><h2>'+esc(p.name)+'</h2><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><div class="big" style="font-size:28px">'+f2(t)+'</div><div class="mut sm">today'+(first?' · in '+tm(first.start_at):'')+'</div></div>'+
+      '<div><div class="big" style="font-size:28px">'+f2(wk.hours)+'</div><div class="mut sm">this week'+(wk.ot?' · '+f2(wk.ot)+' OT':'')+'<br>'+dlbl(wk.start).replace(/^\w+, /,'')+'–'+dlbl(wk.end).replace(/^\w+, /,'')+'</div></div>'+
+      '<div><div class="big" style="font-size:28px">'+f2(m.worked)+'</div><div class="mut sm">pay period<br>'+dlbl(cp.start).replace(/^\w+, /,'')+'–'+dlbl(cp.end).replace(/^\w+, /,'')+'</div></div></div>'+
       (first?'<div class="mut sm" style="margin-top:6px">Clocked in: '+locTag(first.in_lat,first.in_lng,first.in_acc)+'</div>':'')+
       (m.flags.length?'<div style="margin-top:6px">'+m.flags.map(function(d){return '<div class="flag">⚠ '+dlbl(d)+': no hours or time off</div>';}).join('')+'</div>':'')+'</div>';});
   var pend=S.requests.filter(function(r){return r.status==='pending';});
