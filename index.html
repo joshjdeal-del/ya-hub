@@ -378,7 +378,7 @@ function jobProgress(j){
 }
 function vJobs(){
   var f=SUB.jf||'open',q=(SUB.jq||'').toLowerCase();
-  var tabs=[['open','Open'],['quotes','Quotes'],['bill','Billing'],['cust','Customers'],['done','Done']];
+  var tabs=[['open','Open'],['quotes','Quotes'],['bill','Billing'],['cust','Customers'],['done','Finished']];
   var h='<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.jf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>';
   h+='<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="jq" placeholder="Search" value="'+esc(SUB.jq||'')+'" oninput="SUB.jq=this.value;clearTimeout(window._jq);window._jq=setTimeout(function(){render();var i=$(\'jq\');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250)"></div><div style="height:10px"></div>';
   if(f==='quotes')return h+vQuotes(q);
@@ -422,6 +422,8 @@ function jobView(id){
     '<div class="card" style="margin-top:12px"><h2>Tasks <button class="s" onclick="SUB.taskJob=\''+id+'\';taskForm(\'\')">+ Add</button></h2>'+(tk.length?'<div class="list">'+tk.map(taskRow).join('')+'</div>':'<div class="mut sm">No open tasks</div>')+'</div>'+
     '<div class="card"><h2>Recent time</h2>'+(es.length?'<div class="list">'+es.map(function(e){return '<div class="tap" onclick="entryTap(\''+e.id+'\')"><div class="row"><div class="f">'+esc(person(e.person_id).name)+' · '+dlbl(ymd(e.start_at))+'</div><div class="n">'+(e.end_at?f2(hrs(e.start_at,e.end_at)):'running')+'</div></div>'+(e.note?'<div class="mut sm">'+esc(e.note)+'</div>':'')+'</div>';}).join('')+'</div>':'<div class="mut sm">No time in the last few weeks</div>')+'</div>'+
     '<div class="grid2"><button class="b ghost" style="margin:0" onclick="jobForm(\''+id+'\')">Edit job</button>'+(true?'<button class="b ghost" style="margin:0" onclick="quoteForm(\'\',\''+id+'\')">+ Quote</button>':'<span></span>')+'</div>'+
+    (j.status==='open'?'<button class="b alt" onclick="finishJob(\''+id+'\',\'done\')">Finish job</button>':
+      '<div class="grid2"><button class="b alt" style="margin-top:8px" onclick="finishJob(\''+id+'\',\'open\')">Reopen job</button>'+(j.status==='done'?'<button class="b ghost" style="margin-top:8px" onclick="finishJob(\''+id+'\',\'archived\')">Archive</button>':'<span></span>')+'</div>')+
     '<button class="b ghost" onclick="closeSheet()">Close</button>';
   sheet(h);
 }
@@ -483,6 +485,21 @@ function changeForm(jobId,cid){
 }
 function saveChange(jobId,cid){act('save_change',{p_token:TOKEN,c:{id:cid,job_id:jobId,description:$('cd').value,item_code:$('ci').value,qty:$('cq').value,unit_price:$('cpz').value,add_hours:$('chh').value,customer_ok:$('cok').checked,ok_note:$('con').value,installed:$('cin').checked}},function(){jobView(jobId);toast('Saved');});}
 function billChange(cid){var r=prompt('Invoice number');if(!r)return;act('bill_changes',{p_token:TOKEN,p_ids:[cid],p_ref:r},function(){toast('Marked billed');});}
+function finishJob(id,st){
+  var j=job(id);if(!j)return;
+  if(st==='done'){
+    var on=S.entries.filter(function(e){return !e.end_at&&e.job_id===id;}).map(function(e){return person(e.person_id).name;});
+    if(on.length)return alert(on.join(', ')+' is still clocked in on this job. Clock out first.');
+    var ps=jobParts(id),left=ps.filter(function(l){return +l.installed_qty<+l.qty;}).length;
+    var uc=jobChanges(id).filter(function(c){return !c.billed_at&&(+c.qty)*(+c.unit_price)>0;}).length;
+    var msg='Finish this job?'+(+j.unbilled_hours?'\n\n'+f2(j.unbilled_hours)+' billable hours are not billed yet. They stay on the Billing tab.':'')+(uc?'\n'+uc+' change-order part line(s) are not billed yet.':'')+(left?'\n'+left+' of '+ps.length+' parts are not marked on.':'');
+    if(!confirm(msg))return;
+  }
+  if(st==='archived'&&!confirm('Archive this job? It leaves the Finished list after 60 days but its hours and history are kept.'))return;
+  rpc('save_job',{p_token:TOKEN,j:{id:id,customer_id:j.customer_id||'',name:j.name,kind:j.kind,billable:j.billable,status:st,quoted_hours:j.quoted_hours==null?'':String(+j.quoted_hours-0),notes:j.notes||''}},true)
+    .then(function(){if(st==='done'&&j.customer_id)return rpc('set_job_stage',{p_token:TOKEN,p_job:id,p_stage:'done'},true);})
+    .then(function(){return refresh(true);}).then(function(){closeSheet();toast(st==='done'?'Job finished':st==='archived'?'Archived':'Reopened');}).catch(function(e){alert(e.message);});
+}
 function newJobForm(fromClock){SUB.fromClock=fromClock;jobForm('');}
 function jobForm(id){
   var j=id?job(id):{name:'',customer_id:SUB.newJobCust||'',kind:SUB.newFarm?'Farm work':'Service',billable:true,status:'open',quoted_hours:'',notes:''};SUB.newFarm=false;
