@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="YA Hub">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6b2f">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>YA Hub</title>
+<style>
+:root{--g:#2f6b2f;--g2:#e8f1e6;--g3:#cfe3ca;--ink:#1d2a1d;--mut:#6b766b;--line:#dde3da;--bg:#f5f7f3;--red:#a33;--red2:#f7e4e4;--amb:#a8680f;--amb2:#fdf1dc;--blue:#245a8d;--blue2:#e3eef8;--card:#fff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--g);color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+header b{font-size:18px;letter-spacing:.01em}
+header .who{font-size:14px;opacity:.9;display:flex;gap:8px;align-items:center}
+header button{background:transparent;border:1px solid #ffffff88;color:#fff;border-radius:8px;padding:5px 9px;font-size:13px}
+main{max-width:760px;margin:0 auto;padding:12px 16px calc(84px + env(safe-area-inset-bottom))}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:0;color:var(--mut);font-size:11px;padding:4px 0;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--g);font-weight:600}
+nav .dot{position:absolute;top:0;right:calc(50% - 20px);background:var(--red);color:#fff;border-radius:999px;font-size:10px;min-width:16px;height:16px;line-height:16px;padding:0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
+h2{font-size:13px;margin:0 0 10px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h3{font-size:17px;margin:0 0 6px}
+.big{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums}
+.mut{color:var(--mut);font-size:14px}.sm{font-size:13px}
+.b{display:block;width:100%;padding:13px;border:0;border-radius:12px;font-size:16px;font-weight:600;background:var(--g);color:#fff;margin-top:8px}
+.b.alt{background:var(--g2);color:var(--g)}.b.red{background:var(--red)}.b.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.s{padding:6px 10px;border:1px solid var(--line);background:#fff;border-radius:8px;font-size:14px;color:var(--ink)}
+.s.pri{background:var(--g);border-color:var(--g);color:#fff}
+select,input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-size:16px;background:#fff;font-family:inherit;margin-top:5px;color:var(--ink)}
+textarea{min-height:64px;resize:vertical}
+label{display:block;font-size:13px;color:var(--mut);margin-top:10px}
+.row{display:flex;gap:8px;align-items:center}.row>.f{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:12px}
+.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--g2);color:var(--g);white-space:nowrap}
+.pill.amb{background:var(--amb2);color:var(--amb)}.pill.red{background:var(--red2);color:var(--red)}.pill.blue{background:var(--blue2);color:var(--blue)}.pill.gray{background:#eee;color:#555}
+.list>*{padding:10px 0;border-bottom:1px solid var(--line)}.list>*:last-child{border-bottom:0}
+.tap{cursor:pointer}
+.flag{color:var(--amb);font-size:13px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none}
+.tabs button{flex:0 0 auto;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:14px;color:var(--ink)}
+.tabs button.on{background:var(--g);color:#fff;border-color:var(--g)}
+.bar{height:8px;background:#eee;border-radius:99px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--g)}.bar i.over{background:var(--red)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:290px;margin:16px auto}
+.pad button{padding:17px 0;font-size:24px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.dots{display:flex;justify-content:center;gap:14px;margin:22px 0 6px}
+.dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--g)}.dots i.f{background:var(--g)}
+.err{color:var(--red);text-align:center;min-height:20px;font-size:14px}
+.msg{margin:8px 0;max-width:85%}.msg .bub{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 11px;white-space:pre-wrap;word-wrap:break-word}
+.msg.me{margin-left:auto}.msg.me .bub{background:var(--g2);border-color:var(--g3)}
+.msg .meta{font-size:11px;color:var(--mut);margin:2px 4px}
+.chk{width:24px;height:24px;border-radius:7px;border:2px solid var(--g);flex:0 0 24px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;background:#fff}
+.chk.on{background:var(--g)}
+.done-t{text-decoration:line-through;color:var(--mut)}
+#busy{position:fixed;inset:0;background:#0001;display:none;align-items:center;justify-content:center;z-index:20}
+#busy div{background:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 4px 20px #0002}
+#sheet{position:fixed;inset:0;background:#0006;display:none;align-items:flex-end;justify-content:center;z-index:15}
+#sheet .in{background:#fff;width:100%;max-width:760px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom))}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 14px;border-radius:10px;font-size:14px;display:none;z-index:30;max-width:90%}
+.search{position:relative}.search input{padding-left:34px}.search svg{position:absolute;left:10px;top:15px;width:18px;height:18px;color:var(--mut)}
+.right{text-align:right}.hide{display:none}
+</style>
+</head>
+<body>
+<header><b>YA Hub</b><div class="who" id="who"></div></header>
+<main id="app"></main>
+<nav id="nav" class="hide"></nav>
+<div id="busy"><div>Working…</div></div>
+<div id="sheet"><div class="in" id="sheetIn"></div></div>
+<div id="toast"></div>
+<script>
+/* ===== connection ===== */
+var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
+var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
+var TZ = 'America/Chicago', ANCHOR = '2026-10-05';
+
+var TOKEN = '', S = null, TAB = 'clock', SUB = {}, PER = null, LASTPING = null, THREAD = null;
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function store(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}}
+function load(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function toast(t){var d=$('toast');d.textContent=t;d.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){d.style.display='none';},2600);}
+function busy(on){$('busy').style.display=on?'flex':'none';}
+
+function rpc(fn,args,quiet){
+  if(!quiet)busy(true);
+  return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify(args||{})})
+    .then(function(r){return r.json().catch(function(){return null;}).then(function(j){
+      if(!quiet)busy(false);
+      if(!r.ok){var m=(j&&(j.message||j.hint))||('Error '+r.status);if(m==='signin'){signOut(true);throw new Error('Signed out');}throw new Error(m);}
+      return j;});})
+    .catch(function(e){if(!quiet)busy(false);throw e;});
+}
+function act(fn,args,after){return rpc(fn,args).then(function(r){return refresh().then(function(){if(after)after(r);});}).catch(function(e){if(e.message!=='Signed out')alert(e.message);});}
+
+/* ===== dates ===== */
+function ymd(d){return new Date(d).toLocaleDateString('en-CA',{timeZone:TZ});}
+function today(){return ymd(Date.now());}
+function addDays(s,n){var p=s.split('-');var d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]+n));return d.toISOString().slice(0,10);}
+function diffDays(a,b){var pa=a.split('-'),pb=b.split('-');return Math.round((Date.UTC(+pb[0],+pb[1]-1,+pb[2])-Date.UTC(+pa[0],+pa[1]-1,+pa[2]))/864e5);}
+function periodOf(s){var n=Math.floor(diffDays(ANCHOR,s)/14);var st=addDays(ANCHOR,n*14);return {start:st,end:addDays(st,13)};}
+function dow(s){return new Date(s+'T12:00:00Z').getUTCDay();}
+function dlbl(s){return new Date(s+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric',timeZone:'UTC'});}
+function tm(iso){return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:TZ});}
+function hhmm(iso){return new Date(iso).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:TZ});}
+function hrs(a,b){return Math.max(0,(new Date(b||Date.now())-new Date(a))/36e5);}
+function f2(x){return (Math.round((+x||0)*100)/100).toFixed(2);}
+function hm(h){var s=Math.max(0,Math.round(h*3600)),H=Math.floor(s/3600),M=Math.floor(s%3600/60);return H+'h '+(M<10?'0':'')+M+'m';}
+function money(x){return '$'+(+x||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function localIso(d,t){return new Date(d+'T'+t+':00').toISOString();}
+function ago(iso){var m=Math.round((Date.now()-new Date(iso))/6e4);if(m<1)return 'now';if(m<60)return m+'m';if(m<1440)return Math.round(m/60)+'h';return dlbl(ymd(iso));}
+
+/* ===== lookups ===== */
+function mgr(){return S&&(S.me.role==='admin'||S.me.role==='partner');}
+function admin(){return S&&S.me.role==='admin';}
+function person(id){return (S.people||[]).filter(function(p){return p.id===id;})[0]||{name:'?'};}
+function job(id){return (S.jobs||[]).filter(function(j){return j.id===id;})[0]||null;}
+function cust(id){return (S.customers||[]).filter(function(c){return c.id===id;})[0]||null;}
+function jobName(j){if(!j)return 'No job';return (j.customer?j.customer+' · ':'')+j.name;}
+function jobById(id){return jobName(job(id));}
+function running(pid){return (S.entries||[]).filter(function(e){return !e.end_at&&e.person_id===(pid||S.me.id);})[0]||null;}
+function openJobs(){return (S.jobs||[]).filter(function(j){return j.status==='open';});}
+
+/* ===== location ===== */
+function where(){
+  return new Promise(function(res){
+    if(!navigator.geolocation)return res({lat:null,lng:null,acc:null});
+    var done=false;var t=setTimeout(function(){if(!done){done=true;res({lat:null,lng:null,acc:null});}},9000);
+    navigator.geolocation.getCurrentPosition(function(p){if(done)return;done=true;clearTimeout(t);res({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)});},
+      function(){if(done)return;done=true;clearTimeout(t);res({lat:null,lng:null,acc:null});},{enableHighAccuracy:true,timeout:8500,maximumAge:60000});
+  });
+}
+function distM(a,b,c,d){var R=6371000,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r;var h=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)*Math.sin(y/2);return 2*R*Math.asin(Math.sqrt(h));}
+function locTag(lat,lng,acc){
+  if(lat==null)return '<span class="pill gray">no location</span>';
+  var shop=S.settings&&S.settings.shop,fence=+(S.settings&&S.settings.geofence_m)||1600,txt='map';
+  var cls='pill blue';
+  if(shop&&shop.lat!=null){var d=distM(shop.lat,shop.lng,lat,lng);if(d<=fence){txt='at shop';cls='pill';}else{txt=(d/1609.34).toFixed(1)+' mi away';cls='pill amb';}}
+  return '<a class="'+cls+'" target="_blank" href="https://maps.google.com/?q='+lat+','+lng+'">'+txt+'</a>';
+}
+
+/* ===== sign in ===== */
+var typed='';
+function padView(msg){
+  $('who').innerHTML='';$('nav').className='hide';
+  var k=[1,2,3,4,5,6,7,8,9,'',0,'⌫'];
+  $('app').innerHTML='<div class="card" style="text-align:center;margin-top:20px"><h3>Yield Advantage</h3><div class="mut">Enter your 4-digit code</div>'+
+    '<div class="dots">'+[0,1,2,3].map(function(i){return '<i class="'+(i<typed.length?'f':'')+'"></i>';}).join('')+'</div>'+
+    '<div class="err">'+esc(msg||'')+'</div><div class="pad">'+
+    k.map(function(x){return x===''?'<span></span>':'<button onclick="key(\''+x+'\')">'+x+'</button>';}).join('')+'</div></div>';
+}
+function key(x){
+  if(x==='⌫'){typed=typed.slice(0,-1);padView();return;}
+  if(typed.length>=4)return;typed+=x;padView();
+  if(typed.length===4){var c=typed;typed='';
+    rpc('login',{p_code:c}).then(function(r){if(!r.ok){padView(r.why);return;}TOKEN=r.token;store('yaToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
+}
+function signOut(silent){if(TOKEN&&!silent)rpc('logout',{p_token:TOKEN},true).catch(function(){});TOKEN='';S=null;store('yaToken',null);clearInterval(boot.t);padView(silent?'Signed out — enter your code':'');}
+
+/* ===== data ===== */
+function range(){
+  var p=PER||periodOf(today());
+  var from=addDays(p.start,-14); if(from>addDays(today(),-21))from=addDays(today(),-21);
+  return {from:from,to:addDays(p.end,0)>today()?addDays(p.end,0):today()};
+}
+function refresh(quiet){var r=range();return rpc('state',{p_token:TOKEN,p_from:r.from,p_to:r.to},quiet).then(function(st){S=st;render();});}
+function boot(){
+  refresh().then(function(){
+    clearInterval(boot.t);
+    boot.t=setInterval(function(){if(document.hidden||!TOKEN)return;
+      rpc('ping',{p_token:TOKEN},true).then(function(p){var sig=p.last_message+'|'+p.pending+'|'+p.changed;var ae=document.activeElement;var typing=ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName);if(LASTPING&&sig!==LASTPING&&!typing&&!$('sheet').style.display.match(/flex/))refresh(true);if(typing&&sig!==LASTPING)return;LASTPING=sig;}).catch(function(){});
+    },20000);
+  }).catch(function(e){if(e.message!=='Signed out')padView(e.message);});
+}
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&TOKEN&&S)refresh(true).catch(function(){});});
+
+/* ===== shell ===== */
+var ICON={
+ clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+ tasks:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>',
+ jobs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
+ msgs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H8l-4 4z"/></svg>',
+ team:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M15 15c3 0 6 1.5 6 4"/></svg>',
+ me:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg>'
+};
+function unreadCount(){var n=0;threads().forEach(function(t){n+=t.unread;});return n;}
+function render(){
+  if(!S)return;
+  $('who').innerHTML=esc(S.me.name)+' <button onclick="signOut()">Sign out</button>';
+  var tabs=[['clock','Clock'],['tasks','Tasks'],['jobs','Jobs'],['msgs','Messages']];
+  tabs.push(mgr()?['team','Team']:['me','My hours']);
+  var un=unreadCount(),pend=mgr()?S.requests.filter(function(r){return r.status==='pending';}).length:0;
+  $('nav').className='';
+  $('nav').innerHTML=tabs.map(function(t){var dot=(t[0]==='msgs'&&un)?'<span class="dot">'+un+'</span>':(t[0]==='team'&&pend)?'<span class="dot">'+pend+'</span>':'';
+    return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+ICON[t[0]]+t[1]+dot+'</button>';}).join('');
+  var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
+  var keep={};['mb','in','rn'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
+  $('app').innerHTML=f();
+  Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
+  if(foc&&keep[foc]!==undefined&&$(foc)){$(foc).focus();}
+  if(TAB==='msgs'&&THREAD){var b=$('msgBox');if(b)b.scrollIntoView(false);}
+  tickClock();
+}
+function go(t){TAB=t;if(t!=='msgs')THREAD=null;window.scrollTo(0,0);render();}
+function sheet(h){$('sheetIn').innerHTML=h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
+function closeSheet(){$('sheet').style.display='none';}
+$('sheet').addEventListener('click',function(e){if(e.target.id==='sheet')closeSheet();});
+var tickT=null;
+function tickClock(){clearInterval(tickT);var r=S&&running();if(!r)return;tickT=setInterval(function(){var c=$('clk');if(c)c.textContent=hm(hrs(r.start_at));},15000);}
+
+/* ===== job picker ===== */
+function jobOptions(sel,includeAll){
+  var js=(includeAll?S.jobs:openJobs()).slice();
+  var internal=js.filter(function(j){return !j.customer_id;}),cust=js.filter(function(j){return j.customer_id;});
+  cust.sort(function(a,b){return (a.customer+a.name).localeCompare(b.customer+b.name);});
+  function o(j){return '<option value="'+j.id+'"'+(j.id===sel?' selected':'')+'>'+esc(jobName(j))+(j.billable?' $':'')+'</option>';}
+  return '<option value="">— pick a job —</option><optgroup label="Customer jobs">'+cust.map(o).join('')+'</optgroup><optgroup label="Shop / internal">'+internal.map(o).join('')+'</optgroup>';
+}
+
+/* ===== CLOCK ===== */
+function vClock(){
+  var r=running(),h='';
+  if(r){
+    var j=job(r.job_id);
+    h+='<div class="card"><h2>On the clock'+(j&&j.billable?'<span class="pill">billable</span>':'')+'</h2><div class="big" id="clk">'+hm(hrs(r.start_at))+'</div>'+
+      '<div class="mut">'+esc(jobName(j))+' · since '+tm(r.start_at)+'</div>'+
+      '<label>What are you doing</label><textarea id="rn" onblur="saveNote()">'+esc(r.note)+'</textarea>'+
+      '<label>Switch to</label><select id="sp">'+jobOptions(r.job_id)+'</select>'+
+      '<button class="b alt" onclick="doSwitch()">Switch job</button>'+
+      '<button class="b red" onclick="doOut()">Clock out</button></div>';
+  }else{
+    h+='<div class="card"><h2>Off the clock</h2><label>Job</label><select id="ip">'+jobOptions(SUB.pickJob||'')+'</select>'+
+      '<div class="row" style="margin-top:6px"><button class="s" onclick="newJobForm(true)">+ New job</button><span class="mut sm">for a customer that isn\'t listed</span></div>'+
+      '<label>What are you doing (optional)</label><textarea id="in"></textarea>'+
+      '<button class="b" onclick="doIn()">Clock in</button><div class="mut sm" style="margin-top:6px">Your location is saved when you clock in and out.</div></div>';
+  }
+  var tk=today(),mine=S.entries.filter(function(e){return e.person_id===S.me.id&&ymd(e.start_at)===tk;}).reverse();
+  var tot=mine.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);
+  h+='<div class="card"><h2>Today <span>'+hm(tot)+'</span></h2>'+(mine.length?'<div class="list">'+mine.map(entryRow).join('')+'</div>':'<div class="mut">Nothing yet today</div>')+'</div>';
+  var myTasks=S.tasks.filter(function(t){return t.status!=='done'&&(t.owner_id===S.me.id);}).slice(0,5);
+  if(myTasks.length)h+='<div class="card"><h2>My tasks <button class="s" onclick="go(\'tasks\')">All</button></h2><div class="list">'+myTasks.map(taskRow).join('')+'</div></div>';
+  h+='<div class="card"><h2>Time off & fixes</h2><div class="grid2"><button class="b alt" style="margin:0" onclick="leaveForm()">Time off / sick</button><button class="b alt" style="margin:0" onclick="fixForm(\'\')">Add missed time</button></div>'+
+     '<div class="mut sm" style="margin-top:8px">To fix an entry, tap it. Fixes are approved before they count.</div>'+myRequests()+'</div>';
+  return h;
+}
+function entryRow(e){
+  var j=job(e.job_id);
+  return '<div class="tap" onclick="entryTap(\''+e.id+'\')"><div class="row"><div class="f"><b>'+esc(jobName(j))+'</b>'+(e.billable?' <span class="pill">$</span>':'')+'</div><div class="n">'+(e.end_at?hm(hrs(e.start_at,e.end_at)):'<span class="pill">running</span>')+'</div></div>'+
+    '<div class="mut sm">'+tm(e.start_at)+' – '+(e.end_at?tm(e.end_at):'now')+(e.note?' · '+esc(e.note):'')+(e.edited?' · edited':'')+'</div></div>';
+}
+function entryTap(id){
+  var e=S.entries.filter(function(x){return x.id===id;})[0];if(!e)return;
+  if(mgr())return entryForm(id);
+  if(e.end_at)fixForm(id);
+}
+function myRequests(){
+  var rs=S.requests.filter(function(r){return r.person_id===S.me.id;}).slice(0,12);
+  if(!rs.length)return '';
+  return '<div class="list" style="margin-top:8px">'+rs.map(function(q){
+    var cls=q.status==='approved'?'pill':q.status==='pending'?'pill amb':'pill red';
+    return '<div><div class="row"><div class="f">'+dlbl(q.day)+' · '+esc(q.type)+' · '+f2(q.hours)+' h</div><span class="'+cls+'">'+q.status+'</span></div>'+
+      (q.note?'<div class="mut sm">'+esc(q.note)+'</div>':'')+(q.decision_note?'<div class="mut sm">↳ '+esc(q.decision_note)+'</div>':'')+
+      (q.status==='pending'?'<button class="s" style="margin-top:4px" onclick="act(\'cancel_request\',{p_token:TOKEN,p_id:\''+q.id+'\'})">Cancel</button>':'')+'</div>';}).join('')+'</div>';
+}
+function doIn(){var j=$('ip').value;if(!j)return alert('Pick a job');var n=$('in').value;$('in').value='';busy(true);
+  where().then(function(l){return act('clock_in',{p_token:TOKEN,p_job:j,p_note:n,p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){SUB.pickJob=null;toast(l.lat==null?'Clocked in (no location)':'Clocked in');});});}
+function doSwitch(){var j=$('sp').value;if(!j)return alert('Pick a job');busy(true);
+  where().then(function(l){return act('switch_job',{p_token:TOKEN,p_job:j,p_note:'',p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){toast('Switched');});});}
+function doOut(){if(!confirm('Clock out now?'))return;var n=$('rn').value;$('rn').value='';busy(true);
+  where().then(function(l){return act('clock_out',{p_token:TOKEN,p_note:n,p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){toast('Clocked out');});});}
+function saveNote(){var r=running();var v=$('rn').value;if(r&&v!==(r.note||'')){r.note=v;rpc('set_running_note',{p_token:TOKEN,p_note:v},true).catch(function(){});}}
+function startOn(jobId){SUB.pickJob=jobId;var r=running();
+  if(r){if(!confirm('Switch your clock to '+jobById(jobId)+'?'))return;busy(true);
+    where().then(function(l){return act('switch_job',{p_token:TOKEN,p_job:jobId,p_note:'',p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){closeSheet();toast('Switched');go('clock');});});}
+  else{closeSheet();go('clock');}}
+function leaveForm(){
+  sheet('<h3>Time off</h3><label>Type</label><select id="lt"><option>Sick</option><option>PTO</option><option>Unpaid</option></select>'+
+    '<div class="grid2"><div><label>From</label><input type="date" id="lf" value="'+today()+'"></div><div><label>To</label><input type="date" id="lto" value="'+today()+'"></div></div>'+
+    '<label>Hours per day</label><input type="number" id="lh" value="8" step="0.25" min="0" max="24"><label>Note</label><textarea id="ln"></textarea>'+
+    '<button class="b" onclick="act(\'request_leave\',{p_token:TOKEN,p_type:$(\'lt\').value,p_from:$(\'lf\').value,p_to:$(\'lto\').value,p_hours:+$(\'lh\').value,p_note:$(\'ln\').value},function(){closeSheet();toast(\'Sent\');})">Send</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function fixForm(id){
+  var e=id?S.entries.filter(function(x){return x.id===id;})[0]:null;var d=e?ymd(e.start_at):today();
+  sheet('<h3>'+(e?'Ask for a fix':'Add missed time')+'</h3>'+(e?'<div class="mut">'+esc(jobById(e.job_id))+' · '+dlbl(d)+' '+tm(e.start_at)+' – '+tm(e.end_at)+'</div>':'')+
+    '<label>Date</label><input type="date" id="fd" value="'+d+'"><div class="grid2"><div><label>Start</label><input type="time" id="fs" value="'+(e?hhmm(e.start_at):'08:00')+'"></div><div><label>End</label><input type="time" id="fe" value="'+(e?hhmm(e.end_at):'17:00')+'"></div></div>'+
+    '<label>Job</label><select id="fj">'+jobOptions(e?e.job_id:'')+'</select><label>What happened (required)</label><textarea id="fn"></textarea>'+
+    '<button class="b" onclick="sendFix(\''+(id||'')+'\')">Send</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function sendFix(id){var d=$('fd').value,s=localIso(d,$('fs').value),e=localIso(d,$('fe').value);if(e<=s)e=new Date(new Date(e).getTime()+864e5).toISOString();
+  act('request_fix',{p_token:TOKEN,p_entry:id||null,p_start:s,p_end:e,p_job:$('fj').value||null,p_note:$('fn').value},function(){closeSheet();toast('Sent for approval');});}
+
+/* ===== TASKS ===== */
+function taskRow(t){
+  var steps=t.steps||[],dn=steps.filter(function(s){return s.done;}).length,j=job(t.job_id),o=t.owner_id?person(t.owner_id).name:'Anyone';
+  var due=t.due?(t.due<today()&&t.status!=='done'?'<span class="pill red">due '+dlbl(t.due)+'</span>':'<span class="pill gray">'+dlbl(t.due)+'</span>'):'';
+  var pr=t.priority===1?'<span class="pill red">!</span> ':'';
+  return '<div class="row" style="align-items:flex-start"><div class="chk'+(t.status==='done'?' on':'')+'" onclick="event.stopPropagation();act(\'set_task_status\',{p_token:TOKEN,p_id:\''+t.id+'\',p_status:\''+(t.status==='done'?'todo':'done')+'\'})">'+(t.status==='done'?'✓':'')+'</div>'+
+    '<div class="f tap" onclick="taskView(\''+t.id+'\')"><div class="'+(t.status==='done'?'done-t':'')+'">'+pr+esc(t.title)+'</div>'+
+    '<div class="mut sm">'+esc(o)+(j?' · '+esc(jobName(j)):'')+(steps.length?' · '+dn+'/'+steps.length+' steps':'')+(t.status==='doing'?' · <span class="pill blue">doing</span>':'')+' '+due+'</div></div></div>';
+}
+function vTasks(){
+  var f=SUB.tf||'mine';
+  var open=S.tasks.filter(function(t){return t.status!=='done';});
+  var list=f==='mine'?open.filter(function(t){return t.owner_id===S.me.id;}):f==='all'?open:f==='anyone'?open.filter(function(t){return !t.owner_id;}):S.tasks.filter(function(t){return t.status==='done';}).sort(function(a,b){return a.done_at<b.done_at?1:-1;});
+  if(f!=='done')list.sort(function(a,b){return (a.priority-b.priority)||((a.due||'9')<(b.due||'9')?-1:(a.due||'9')>(b.due||'9')?1:0)||(a.sort-b.sort);});
+  var tabs=[['mine','Mine ('+open.filter(function(t){return t.owner_id===S.me.id;}).length+')'],['all','Everyone ('+open.length+')'],['anyone','Unassigned'],['done','Done']];
+  return '<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.tf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'+
+    '<button class="b" style="margin:0 0 12px" onclick="taskForm(\'\')">+ New task</button>'+
+    '<div class="card">'+(list.length?'<div class="list">'+list.map(taskRow).join('')+'</div>':'<div class="mut">Nothing here</div>')+'</div>';
+}
+function taskView(id){
+  var t=S.tasks.filter(function(x){return x.id===id;})[0];if(!t)return;var j=job(t.job_id);
+  sheet('<h3>'+esc(t.title)+'</h3><div class="mut">'+esc(t.owner_id?person(t.owner_id).name:'Anyone')+(t.due?' · due '+dlbl(t.due):'')+(j?' · '+esc(jobName(j)):'')+' · added by '+esc(person(t.created_by).name)+'</div>'+
+    (t.notes?'<p style="white-space:pre-wrap">'+esc(t.notes)+'</p>':'')+
+    ((t.steps||[]).length?'<div class="list" style="margin-top:8px">'+t.steps.map(function(s){return '<div class="row tap" onclick="rpc(\'toggle_step\',{p_token:TOKEN,p_id:\''+s.id+'\'}).then(function(){return refresh(true);}).then(function(){taskView(\''+id+'\');})"><div class="chk'+(s.done?' on':'')+'">'+(s.done?'✓':'')+'</div><div class="f '+(s.done?'done-t':'')+'">'+esc(s.text)+'</div></div>';}).join('')+'</div>':'')+
+    '<div class="grid2" style="margin-top:10px">'+
+      (t.status!=='doing'&&t.status!=='done'?'<button class="b alt" style="margin:0" onclick="act(\'set_task_status\',{p_token:TOKEN,p_id:\''+id+'\',p_status:\'doing\'},function(){taskView(\''+id+'\');})">Working on it</button>':'<span></span>')+
+      '<button class="b" style="margin:0" onclick="act(\'set_task_status\',{p_token:TOKEN,p_id:\''+id+'\',p_status:\''+(t.status==='done'?'todo':'done')+'\'},closeSheet)">'+(t.status==='done'?'Reopen':'Done')+'</button></div>'+
+    (t.job_id?'<button class="b alt" onclick="startOn(\''+t.job_id+'\')">Start clock on this job</button>':'')+
+    '<div class="grid2"><button class="b ghost" onclick="taskForm(\''+id+'\')">Edit</button>'+
+    (mgr()||t.created_by===S.me.id?'<button class="b ghost" style="color:var(--red)" onclick="if(confirm(\'Delete this task?\'))act(\'delete_task\',{p_token:TOKEN,p_id:\''+id+'\'},closeSheet)">Delete</button>':'<span></span>')+'</div>'+
+    (t.job_id?'<button class="b ghost" onclick="closeSheet();openThread(\''+t.job_id+'\')">Messages on this job</button>':''));
+}
+var draftSteps=[];
+function taskForm(id){
+  var t=id?S.tasks.filter(function(x){return x.id===id;})[0]:{title:'',notes:'',owner_id:S.me.id,due:'',priority:2,job_id:SUB.taskJob||'',steps:[]};
+  draftSteps=(t.steps||[]).map(function(s){return {text:s.text,done:s.done};});
+  sheet('<h3>'+(id?'Edit task':'New task')+'</h3><label>Task</label><input id="tt" value="'+esc(t.title)+'">'+
+    '<div class="grid2"><div><label>Who</label><select id="to"><option value="">Anyone</option>'+S.people.filter(function(p){return p.active;}).map(function(p){return '<option value="'+p.id+'"'+(p.id===t.owner_id?' selected':'')+'>'+esc(p.name)+'</option>';}).join('')+'</select></div>'+
+    '<div><label>Due</label><input type="date" id="td" value="'+(t.due||'')+'"></div></div>'+
+    '<div class="grid2"><div><label>Priority</label><select id="tp"><option value="1"'+(t.priority===1?' selected':'')+'>High</option><option value="2"'+(t.priority===2?' selected':'')+'>Normal</option><option value="3"'+(t.priority===3?' selected':'')+'>Low</option></select></div>'+
+    '<div><label>Job (optional)</label><select id="tj">'+jobOptions(t.job_id||'',true).replace('— pick a job —','None')+'</select></div></div>'+
+    '<label>Notes</label><textarea id="tn">'+esc(t.notes||'')+'</textarea>'+
+    '<label>Steps</label><div id="stepsBox"></div><div class="row"><input id="ns" class="f" placeholder="Add a step" onkeydown="if(event.key===\'Enter\'){addStep();event.preventDefault();}"><button class="s" style="margin-top:5px" onclick="addStep()">Add</button></div>'+
+    '<button class="b" onclick="saveTask(\''+(id||'')+'\')">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+  drawSteps();
+}
+function drawSteps(){$('stepsBox').innerHTML=draftSteps.map(function(s,i){return '<div class="row" style="margin-top:4px"><div class="f sm'+(s.done?' done-t':'')+'">• '+esc(s.text)+'</div><button class="s" onclick="draftSteps.splice('+i+',1);drawSteps()">✕</button></div>';}).join('');}
+function addStep(){var v=$('ns').value.trim();if(!v)return;draftSteps.push({text:v,done:false});$('ns').value='';drawSteps();}
+function saveTask(id){addStep();act('save_task',{p_token:TOKEN,t:{id:id,title:$('tt').value,owner_id:$('to').value,due:$('td').value,priority:$('tp').value,job_id:$('tj').value,notes:$('tn').value,steps:draftSteps}},function(){closeSheet();SUB.taskJob=null;toast('Saved');});}
+
+/* ===== JOBS ===== */
+function jobProgress(j){
+  var q=+j.quoted_hours||0,s=+j.spent_hours||0;
+  if(!q)return s?'<div class="mut sm">'+f2(s)+' h spent · no quote</div>':'';
+  var pct=Math.min(100,Math.round(s/q*100)),over=s>q;
+  return '<div class="mut sm">'+f2(s)+' of '+f2(q)+' quoted hrs'+(over?' · <span style="color:var(--red)">'+f2(s-q)+' over</span>':s>q*0.8?' · <span style="color:var(--amb)">'+f2(q-s)+' left</span>':' · '+f2(q-s)+' left')+'</div><div class="bar"><i class="'+(over?'over':'')+'" style="width:'+pct+'%"></i></div>';
+}
+function vJobs(){
+  var f=SUB.jf||'open',q=(SUB.jq||'').toLowerCase();
+  var tabs=[['open','Open'],['cust','Customers'],['done','Done']];if(mgr())tabs.splice(1,0,['quotes','Quotes']);
+  var h='<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.jf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>';
+  h+='<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="jq" placeholder="Search" value="'+esc(SUB.jq||'')+'" oninput="SUB.jq=this.value;clearTimeout(window._jq);window._jq=setTimeout(function(){render();var i=$(\'jq\');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250)"></div><div style="height:10px"></div>';
+  if(f==='quotes')return h+vQuotes(q);
+  if(f==='cust'){
+    var cs=S.customers.filter(function(c){return c.active&&(!q||c.name.toLowerCase().indexOf(q)>=0);});
+    return h+'<button class="b" style="margin:0 0 12px" onclick="custForm(\'\')">+ New customer</button><div class="card"><div class="list">'+cs.map(function(c){
+      var n=S.jobs.filter(function(j){return j.customer_id===c.id&&j.status==='open';}).length;
+      return '<div class="tap row" onclick="custView(\''+c.id+'\')"><div class="f"><b>'+esc(c.name)+'</b>'+(c.town?' <span class="mut sm">'+esc(c.town)+'</span>':'')+'</div>'+(n?'<span class="pill">'+n+' open</span>':'')+'</div>';}).join('')+'</div></div>';
+  }
+  var js=S.jobs.filter(function(j){return (f==='open'?j.status==='open':j.status!=='open')&&(!q||(jobName(j)+' '+j.kind).toLowerCase().indexOf(q)>=0);});
+  var custJ=js.filter(function(j){return j.customer_id;}),inJ=js.filter(function(j){return !j.customer_id;});
+  custJ.sort(function(a,b){return (a.customer+a.name).localeCompare(b.customer+b.name);});
+  h+='<button class="b" style="margin:0 0 12px" onclick="newJobForm(false)">+ New job</button>';
+  h+='<div class="card"><h2>Customer jobs</h2>'+(custJ.length?'<div class="list">'+custJ.map(jobRow).join('')+'</div>':'<div class="mut">None</div>')+'</div>';
+  if(inJ.length)h+='<div class="card"><h2>Shop / internal</h2><div class="list">'+inJ.map(jobRow).join('')+'</div></div>';
+  return h;
+}
+function jobRow(j){
+  var on=S.entries.filter(function(e){return !e.end_at&&e.job_id===j.id;}).map(function(e){return person(e.person_id).name;});
+  var tk=S.tasks.filter(function(t){return t.job_id===j.id&&t.status!=='done';}).length;
+  return '<div class="tap" onclick="jobView(\''+j.id+'\')"><div class="row"><div class="f"><b>'+esc(j.customer?j.customer:j.name)+'</b>'+(j.customer?' <span class="mut">· '+esc(j.name)+'</span>':'')+'</div>'+
+    (on.length?'<span class="pill blue">'+esc(on.join(', '))+' on</span>':'')+(tk?' <span class="pill gray">'+tk+' tasks</span>':'')+(mgr()&&+j.unbilled_hours?' <span class="pill amb">'+f2(j.unbilled_hours)+' unbilled</span>':'')+'</div>'+jobProgress(j)+'</div>';
+}
+function jobView(id){
+  var j=job(id);if(!j)return;
+  var es=S.entries.filter(function(e){return e.job_id===id;}).slice().reverse().slice(0,25);
+  var tk=S.tasks.filter(function(t){return t.job_id===id&&t.status!=='done';});
+  var qs=mgr()?S.quotes.filter(function(q){return q.job_id===id;}):[];
+  var h='<h3>'+esc(jobName(j))+'</h3><div class="mut">'+esc(j.kind)+' · '+(j.billable?'billable':'not billable')+' · '+j.status+'</div>'+(j.notes?'<p style="white-space:pre-wrap">'+esc(j.notes)+'</p>':'')+
+    '<div class="card" style="margin-top:10px"><h2>Quoted vs actual</h2>'+(jobProgress(j)||'<div class="mut sm">'+f2(j.spent_hours)+' h spent</div>')+
+    (mgr()&&j.quoted_parts?'<div class="mut sm" style="margin-top:6px">Quoted parts '+money(j.quoted_parts)+'</div>':'')+
+    (mgr()&&+j.unbilled_hours?'<div class="mut sm">Unbilled billable hours: '+f2(j.unbilled_hours)+'</div>':'')+'</div>'+
+    (qs.length?'<div class="card"><h2>Quotes</h2><div class="list">'+qs.map(quoteRow).join('')+'</div></div>':'')+
+    '<div class="grid2"><button class="b" style="margin:0" onclick="startOn(\''+id+'\')">Start clock here</button><button class="b alt" style="margin:0" onclick="closeSheet();openThread(\''+id+'\')">Messages</button></div>'+
+    '<div class="card" style="margin-top:12px"><h2>Tasks <button class="s" onclick="SUB.taskJob=\''+id+'\';taskForm(\'\')">+ Add</button></h2>'+(tk.length?'<div class="list">'+tk.map(taskRow).join('')+'</div>':'<div class="mut sm">No open tasks</div>')+'</div>'+
+    '<div class="card"><h2>Recent time</h2>'+(es.length?'<div class="list">'+es.map(function(e){return '<div class="tap" onclick="entryTap(\''+e.id+'\')"><div class="row"><div class="f">'+esc(person(e.person_id).name)+' · '+dlbl(ymd(e.start_at))+'</div><div class="n">'+(e.end_at?f2(hrs(e.start_at,e.end_at)):'running')+'</div></div>'+(e.note?'<div class="mut sm">'+esc(e.note)+'</div>':'')+'</div>';}).join('')+'</div>':'<div class="mut sm">No time in the last few weeks</div>')+'</div>'+
+    '<div class="grid2"><button class="b ghost" style="margin:0" onclick="jobForm(\''+id+'\')">Edit job</button>'+(mgr()?'<button class="b ghost" style="margin:0" onclick="quoteForm(\'\',\''+id+'\')">+ Quote</button>':'<span></span>')+'</div>'+
+    '<button class="b ghost" onclick="closeSheet()">Close</button>';
+  sheet(h);
+}
+function newJobForm(fromClock){SUB.fromClock=fromClock;jobForm('');}
+function jobForm(id){
+  var j=id?job(id):{name:'',customer_id:SUB.newJobCust||'',kind:'Service',billable:true,status:'open',quoted_hours:'',notes:''};
+  var kinds=['Install','Service','Inspection','Support','Sales','Farm work','Shop','Admin','Driving','Other'];
+  sheet('<h3>'+(id?'Edit job':'New job')+'</h3><label>Customer</label><div class="row"><select id="jc" class="f"><option value="">— none (shop / internal) —</option>'+
+    S.customers.filter(function(c){return c.active||c.id===j.customer_id;}).map(function(c){return '<option value="'+c.id+'"'+(c.id===j.customer_id?' selected':'')+'>'+esc(c.name)+'</option>';}).join('')+
+    '</select><button class="s" style="margin-top:5px" onclick="quickCust()">+ New</button></div>'+
+    '<label>Job name</label><input id="jn" value="'+esc(j.name)+'" placeholder="e.g. 16-row vSet install">'+
+    '<div class="grid2"><div><label>Type</label><select id="jk">'+kinds.map(function(k){return '<option'+(k===j.kind?' selected':'')+'>'+k+'</option>';}).join('')+'</select></div>'+
+    '<div><label>Quoted hours</label><input id="jq2" type="number" step="0.25" value="'+(j.quoted_hours==null?'':j.quoted_hours)+'"></div></div>'+
+    '<label><input type="checkbox" id="jb" style="width:auto" '+(j.billable?'checked':'')+'> Billable to the customer</label>'+
+    (id?'<label>Status</label><select id="js"><option value="open"'+(j.status==='open'?' selected':'')+'>Open</option><option value="done"'+(j.status==='done'?' selected':'')+'>Done</option><option value="archived"'+(j.status==='archived'?' selected':'')+'>Archived</option></select>':'')+
+    '<label>Notes</label><textarea id="jno">'+esc(j.notes||'')+'</textarea>'+
+    '<button class="b" onclick="saveJob(\''+(id||'')+'\')">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function quickCust(){var n=prompt('New customer name');if(!n)return;rpc('save_customer',{p_token:TOKEN,c:{name:n}}).then(function(r){return refresh(true).then(function(){var sel=$('jc');if(sel){var o=document.createElement('option');o.value=r.id;o.textContent=n;o.selected=true;sel.appendChild(o);}});}).catch(function(e){alert(e.message);});}
+function saveJob(id){
+  var j={id:id,customer_id:$('jc').value,name:$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};
+  act('save_job',{p_token:TOKEN,j:j},function(r){closeSheet();if(SUB.fromClock&&!id){SUB.pickJob=r.id;SUB.fromClock=false;go('clock');}toast('Saved');});
+}
+function custView(id){
+  var c=cust(id);var js=S.jobs.filter(function(j){return j.customer_id===id;});
+  sheet('<h3>'+esc(c.name)+'</h3><div class="mut">'+[c.town,c.phone,c.email].filter(Boolean).map(esc).join(' · ')+'</div>'+(c.phone?'<a class="s" style="display:inline-block;margin-top:8px" href="tel:'+esc(c.phone)+'">Call</a>':'')+
+    (c.notes?'<p style="white-space:pre-wrap">'+esc(c.notes)+'</p>':'')+
+    '<div class="card" style="margin-top:10px"><h2>Jobs <button class="s" onclick="SUB.newJobCust=\''+id+'\';jobForm(\'\');SUB.newJobCust=null">+ Job</button></h2>'+(js.length?'<div class="list">'+js.map(function(j){return '<div class="tap" onclick="jobView(\''+j.id+'\')"><div class="row"><div class="f">'+esc(j.name)+'</div><span class="pill '+(j.status==='open'?'':'gray')+'">'+j.status+'</span></div>'+jobProgress(j)+'</div>';}).join('')+'</div>':'<div class="mut sm">No jobs</div>')+'</div>'+
+    '<button class="b ghost" onclick="custForm(\''+id+'\')">Edit customer</button><button class="b ghost" onclick="closeSheet()">Close</button>');
+}
+function custForm(id){
+  var c=id?cust(id):{name:'',phone:'',email:'',town:'',notes:'',active:true};
+  sheet('<h3>'+(id?'Edit customer':'New customer')+'</h3><label>Name</label><input id="cn" value="'+esc(c.name)+'">'+
+    '<div class="grid2"><div><label>Phone</label><input id="cp" type="tel" value="'+esc(c.phone||'')+'"></div><div><label>Town</label><input id="ct" value="'+esc(c.town||'')+'"></div></div>'+
+    '<label>Email</label><input id="ce" type="email" value="'+esc(c.email||'')+'"><label>Notes</label><textarea id="cno">'+esc(c.notes||'')+'</textarea>'+
+    (id?'<label><input type="checkbox" id="ca" style="width:auto" '+(c.active?'checked':'')+'> Active</label>':'')+
+    '<button class="b" onclick="act(\'save_customer\',{p_token:TOKEN,c:{id:\''+(id||'')+'\',name:$(\'cn\').value,phone:$(\'cp\').value,town:$(\'ct\').value,email:$(\'ce\').value,notes:$(\'cno\').value'+(id?',active:$(\'ca\').checked':'')+'}},function(){closeSheet();toast(\'Saved\');})">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+
+/* ===== QUOTES (managers) ===== */
+function qTotals(q){var l=0,p=0,lh=0;(q.lines||[]).forEach(function(x){var t=(+x.qty||0)*(+x.unit_price||0);if(x.kind==='labor'){l+=t;lh+=+x.qty||0;}else p+=t;});return {labor:l,parts:p,hours:lh,total:l+p};}
+function quoteRow(q){var t=qTotals(q);var cls={draft:'pill gray',sent:'pill blue',accepted:'pill',declined:'pill red'}[q.status];
+  return '<div class="tap" onclick="quoteForm(\''+q.id+'\')"><div class="row"><div class="f"><b>'+esc(q.title)+'</b>'+(q.number?' <span class="mut sm">#'+esc(q.number)+'</span>':'')+'</div><span class="'+cls+'">'+q.status+'</span></div>'+
+    '<div class="mut sm">'+esc(q.customer_id&&cust(q.customer_id)?cust(q.customer_id).name:'No customer')+' · '+money(t.total)+(t.hours?' · '+f2(t.hours)+' labor hrs':'')+(q.job_id?' · linked to job':'')+'</div></div>';}
+function vQuotes(qs){
+  var list=S.quotes.filter(function(q){return !qs||(q.title+' '+(q.number||'')+' '+(cust(q.customer_id)||{}).name).toLowerCase().indexOf(qs)>=0;});
+  return '<button class="b" style="margin:0 0 12px" onclick="quoteForm(\'\',\'\')">+ New quote</button><div class="card">'+(list.length?'<div class="list">'+list.map(quoteRow).join('')+'</div>':'<div class="mut">No quotes yet</div>')+'</div>'+
+    '<div class="mut sm">Xero sync (import your Xero quotes, send these to Xero) is coming next.</div>';
+}
+var QL=[];
+function quoteForm(id,jobId){
+  var q=id?S.quotes.filter(function(x){return x.id===id;})[0]:{title:'',number:'',status:'draft',customer_id:jobId&&job(jobId)?job(jobId).customer_id:'',job_id:jobId||'',notes:'',valid_until:'',lines:[]};
+  var rate=(S.settings.labor_rate&&S.settings.labor_rate.default)||'';
+  QL=(q.lines||[]).map(function(l){return {kind:l.kind,item_code:l.item_code||'',description:l.description||'',qty:l.qty,unit_price:l.unit_price};});
+  if(!QL.length)QL=[{kind:'labor',item_code:'',description:'Labor',qty:'',unit_price:rate}];
+  sheet('<h3>'+(id?'Quote':'New quote')+'</h3><label>Title</label><input id="qt" value="'+esc(q.title)+'">'+
+    '<div class="grid2"><div><label>Customer</label><select id="qc"><option value="">—</option>'+S.customers.map(function(c){return '<option value="'+c.id+'"'+(c.id===q.customer_id?' selected':'')+'>'+esc(c.name)+'</option>';}).join('')+'</select></div>'+
+    '<div><label>Status</label><select id="qs">'+['draft','sent','accepted','declined'].map(function(s){return '<option'+(s===q.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'+
+    '<div class="grid2"><div><label>Quote #</label><input id="qn" value="'+esc(q.number||'')+'"></div><div><label>Valid until</label><input type="date" id="qv" value="'+(q.valid_until||'')+'"></div></div>'+
+    '<label>Job (for quoted vs actual)</label><select id="qj">'+jobOptions(q.job_id||'',true).replace('— pick a job —','None yet')+'</select>'+
+    '<label>Lines</label><div id="qlBox"></div><div class="grid2"><button class="s" onclick="QL.push({kind:\'labor\',description:\'Labor\',qty:\'\',unit_price:\''+rate+'\'});drawQL()">+ Labor</button><button class="s" onclick="QL.push({kind:\'part\',item_code:\'\',description:\'\',qty:1,unit_price:\'\'});drawQL()">+ Part</button></div>'+
+    '<div id="qTot" class="card" style="margin-top:10px"></div><label>Notes / terms</label><textarea id="qno">'+esc(q.notes||'')+'</textarea>'+
+    '<button class="b" onclick="saveQuote(\''+(id||'')+'\',false)">Save</button>'+
+    (!q.job_id?'<button class="b alt" onclick="saveQuote(\''+(id||'')+'\',true)">Save & make it a job</button>':'')+
+    (id?'<button class="b ghost" style="color:var(--red)" onclick="if(confirm(\'Delete this quote?\'))act(\'delete_quote\',{p_token:TOKEN,p_id:\''+id+'\'},closeSheet)">Delete</button>':'')+
+    '<button class="b ghost" onclick="closeSheet()">Cancel</button>');
+  drawQL();
+}
+function drawQL(){
+  $('qlBox').innerHTML=QL.map(function(l,i){return '<div class="card" style="padding:10px;margin:6px 0"><div class="row"><span class="pill '+(l.kind==='labor'?'':'blue')+'">'+l.kind+'</span><span class="f"></span><button class="s" onclick="QL.splice('+i+',1);drawQL()">✕</button></div>'+
+    (l.kind!=='labor'?'<input placeholder="Part #" value="'+esc(l.item_code||'')+'" oninput="QL['+i+'].item_code=this.value">':'')+
+    '<input placeholder="Description" value="'+esc(l.description||'')+'" oninput="QL['+i+'].description=this.value">'+
+    '<div class="grid2"><input type="number" step="0.25" placeholder="'+(l.kind==='labor'?'Hours':'Qty')+'" value="'+(l.qty===''?'':l.qty)+'" oninput="QL['+i+'].qty=this.value;qTot()"><input type="number" step="0.01" placeholder="'+(l.kind==='labor'?'Rate':'Price each')+'" value="'+(l.unit_price===''?'':l.unit_price)+'" oninput="QL['+i+'].unit_price=this.value;qTot()"></div></div>';}).join('');
+  qTot();
+}
+function qTot(){var t=qTotals({lines:QL});$('qTot').innerHTML='<table><tr><td>Labor ('+f2(t.hours)+' hrs)</td><td class="n">'+money(t.labor)+'</td></tr><tr><td>Parts</td><td class="n">'+money(t.parts)+'</td></tr><tr><td><b>Total</b></td><td class="n"><b>'+money(t.total)+'</b></td></tr></table>';}
+function saveQuote(id,makeJob){
+  var q={id:id,title:$('qt').value,customer_id:$('qc').value,status:$('qs').value,number:$('qn').value,valid_until:$('qv').value,job_id:$('qj').value,notes:$('qno').value,lines:QL};
+  if(makeJob){
+    if(!q.customer_id)return alert('Pick a customer first');
+    rpc('save_job',{p_token:TOKEN,j:{customer_id:q.customer_id,name:q.title,kind:'Install',billable:true}}).then(function(r){q.job_id=r.id;return act('save_quote',{p_token:TOKEN,q:q},function(){closeSheet();toast('Quote and job saved');});}).catch(function(e){alert(e.message);});
+  }else act('save_quote',{p_token:TOKEN,q:q},function(){closeSheet();toast('Saved');});
+}
+
+/* ===== MESSAGES ===== */
+function threads(){
+  var map={},rd=S.reads||{};
+  map.general={key:'general',job_id:null,name:'Yield Advantage — everyone',last:null,unread:0};
+  (S.messages||[]).forEach(function(m){var k=m.job_id||'general';
+    if(!map[k])map[k]={key:k,job_id:m.job_id,name:jobById(m.job_id),last:null,unread:0};
+    map[k].last=m;if(m.person_id!==S.me.id&&(!rd[k]||m.at>rd[k]))map[k].unread++;});
+  return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){if(a.key==='general')return -1;if(b.key==='general')return 1;return (b.last?b.last.id:0)-(a.last?a.last.id:0);});
+}
+function openThread(jobId){THREAD=jobId||'general';TAB='msgs';rpc('mark_read',{p_token:TOKEN,p_thread:THREAD},true).then(function(){S.reads[THREAD]=new Date().toISOString();render();}).catch(function(){});render();}
+function vMsgs(){
+  if(THREAD){
+    var ms=(S.messages||[]).filter(function(m){return (m.job_id||'general')===THREAD;});
+    var name=THREAD==='general'?'Yield Advantage — everyone':jobById(THREAD);
+    return '<div class="row" style="margin-bottom:10px"><button class="s" onclick="THREAD=null;render()">‹ Back</button><b class="f">'+esc(name)+'</b>'+(THREAD!=='general'?'<button class="s" onclick="jobView(\''+THREAD+'\')">Job</button>':'')+'</div>'+
+      '<div>'+(ms.length?ms.map(function(m){var me=m.person_id===S.me.id;return '<div class="msg'+(me?' me':'')+'"><div class="meta">'+(me?'':esc(person(m.person_id).name)+' · ')+ago(m.at)+'</div><div class="bub">'+linkify(esc(m.body))+'</div></div>';}).join(''):'<div class="mut" style="text-align:center;margin:30px 0">No messages yet</div>')+'</div>'+
+      '<div id="msgBox" class="card" style="margin-top:12px"><textarea id="mb" placeholder="Message"></textarea><button class="b" onclick="sendMsg()">Send</button></div>';
+  }
+  var ts=threads();
+  return '<div class="card"><div class="list">'+ts.map(function(t){return '<div class="tap" onclick="openThread('+(t.job_id?'\''+t.job_id+'\'':'null')+')"><div class="row"><div class="f"><b>'+esc(t.name)+'</b></div>'+(t.unread?'<span class="pill red">'+t.unread+'</span>':'')+(t.last?'<span class="mut sm">'+ago(t.last.at)+'</span>':'')+'</div>'+
+    (t.last?'<div class="mut sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(person(t.last.person_id).name)+': '+esc(t.last.body)+'</div>':'<div class="mut sm">Start the conversation</div>')+'</div>';}).join('')+'</div></div>'+
+    '<div class="mut sm">Every job has its own thread. Open a job and tap Messages to start one.</div>';
+}
+function linkify(s){return s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>');}
+function sendMsg(){var v=$('mb').value.trim();if(!v)return;$('mb').value='';act('post_message',{p_token:TOKEN,p_job:THREAD==='general'?null:THREAD,p_body:v},function(){S.reads[THREAD]=new Date().toISOString();render();});}
+
+/* ===== HOURS (shared) ===== */
+function summarize(pid,per){
+  var days=[],by={};for(var i=0;i<14;i++){var k=addDays(per.start,i);var r={date:k,hours:0,first:null,leave:[],jobs:{}};days.push(r);by[k]=r;}
+  var jobs={},bill=0;
+  S.entries.forEach(function(e){if(e.person_id!==pid)return;var k=ymd(e.start_at);var r=by[k];if(!r)return;var h=hrs(e.start_at,e.end_at);r.hours+=h;
+    if(!r.first||e.start_at<r.first)r.first=e.start_at;jobs[e.job_id]=(jobs[e.job_id]||0)+h;if(e.billable)bill+=h;});
+  var leave={};S.requests.forEach(function(q){if(q.person_id!==pid||q.status!=='approved'||!by[q.day]||['Sick','PTO','Holiday','Unpaid'].indexOf(q.type)<0)return;by[q.day].leave.push(q);leave[q.type]=(leave[q.type]||0)+(+q.hours);});
+  var weeks=[0,1].map(function(w){var t=0;for(var d=w*7;d<w*7+7;d++)t+=days[d].hours;var t2=Math.round(t*100)/100;return {start:days[w*7].date,end:days[w*7+6].date,hours:t2,reg:Math.min(40,t2),ot:Math.max(0,Math.round((t2-40)*100)/100)};});
+  var firsts=days.filter(function(d){var w=dow(d.date);return d.first&&w>=1&&w<=5;}).map(function(d){var p=hhmm(d.first).split(':');return (+p[0])*60+(+p[1]);});
+  var avg=firsts.length?firsts.reduce(function(a,b){return a+b;},0)/firsts.length:null;
+  var flags=days.filter(function(d){var w=dow(d.date);return w>=1&&w<=5&&d.hours===0&&!d.leave.length&&d.date<today();}).map(function(d){return d.date;});
+  return {days:days,weeks:weeks,worked:weeks[0].hours+weeks[1].hours,reg:weeks[0].reg+weeks[1].reg,ot:weeks[0].ot+weeks[1].ot,leave:leave,
+    jobs:Object.keys(jobs).map(function(k){return {job_id:k,hours:jobs[k]};}).sort(function(a,b){return b.hours-a.hours;}),billable:bill,
+    avg:avg==null?null:(Math.floor(avg/60)%12||12)+':'+('0'+Math.floor(avg%60)).slice(-2)+(avg<720?' AM':' PM'),flags:flags};
+}
+function perBar(){var p=PER||periodOf(today());return '<div class="row" style="margin-bottom:10px"><button class="s" onclick="shiftPer(-1)">◀</button><div class="f" style="text-align:center"><b>'+dlbl(p.start)+' – '+dlbl(p.end)+'</b></div><button class="s" onclick="shiftPer(1)">▶</button></div>';}
+function shiftPer(n){var p=PER||periodOf(today());PER=periodOf(addDays(p.start,14*n));refresh();}
+function hoursCard(pid,showName){
+  var per=PER||periodOf(today()),m=summarize(pid,per);
+  var lv=Object.keys(m.leave);
+  return '<div class="card"><h2>'+(showName?esc(person(pid).name):'Hours')+'<span>'+f2(m.worked)+' h</span></h2>'+
+    '<table><tr><th>Week</th><th class="n">Total</th><th class="n">Reg</th><th class="n">OT</th></tr>'+m.weeks.map(function(w){return '<tr><td>'+dlbl(w.start)+'</td><td class="n">'+f2(w.hours)+'</td><td class="n">'+f2(w.reg)+'</td><td class="n">'+f2(w.ot)+'</td></tr>';}).join('')+
+    '<tr><td><b>Period</b></td><td class="n"><b>'+f2(m.worked)+'</b></td><td class="n"><b>'+f2(m.reg)+'</b></td><td class="n"><b>'+f2(m.ot)+'</b></td></tr></table>'+
+    (lv.length?'<div class="mut sm" style="margin-top:6px">Time off: '+lv.map(function(t){return esc(t)+' '+f2(m.leave[t])+' h';}).join(' · ')+'</div>':'')+
+    (m.jobs.length?'<table style="margin-top:10px"><tr><th>Job</th><th class="n">Hours</th></tr>'+m.jobs.map(function(x){var j=job(x.job_id);return '<tr><td>'+esc(jobName(j))+(j&&j.billable?' <span class="pill">$</span>':'')+'</td><td class="n">'+f2(x.hours)+'</td></tr>';}).join('')+'</table>':'')+
+    '<div class="mut sm" style="margin-top:6px">Billable '+f2(m.billable)+' h'+(m.avg?' · avg weekday start '+m.avg:'')+'</div>'+
+    (m.flags.length?'<div style="margin-top:6px">'+m.flags.map(function(d){return '<div class="flag">⚠ '+dlbl(d)+': weekday with no hours or time off</div>';}).join('')+'</div>':'')+
+    '<details style="margin-top:8px"><summary class="mut sm">Day by day</summary><table>'+m.days.map(function(d){return '<tr><td>'+dlbl(d.date)+'</td><td>'+(d.first?tm(d.first):'')+'</td><td class="n">'+(d.hours?f2(d.hours):'')+'</td><td class="sm">'+d.leave.map(function(l){return esc(l.type)+' '+f2(l.hours);}).join(', ')+'</td></tr>';}).join('')+'</table></details></div>';
+}
+function vMe(){
+  var per=PER||periodOf(today());
+  var es=S.entries.filter(function(e){return e.person_id===S.me.id&&ymd(e.start_at)>=per.start&&ymd(e.start_at)<=per.end;}).slice().reverse();
+  return perBar()+hoursCard(S.me.id,false)+'<div class="card"><h2>Entries</h2>'+(es.length?'<div class="list">'+es.map(function(e){return '<div class="tap" onclick="entryTap(\''+e.id+'\')"><div class="row"><div class="f"><b>'+esc(jobById(e.job_id))+'</b></div><div class="n">'+(e.end_at?f2(hrs(e.start_at,e.end_at)):'running')+'</div></div><div class="mut sm">'+dlbl(ymd(e.start_at))+' · '+tm(e.start_at)+' – '+(e.end_at?tm(e.end_at):'now')+(e.note?' · '+esc(e.note):'')+'</div></div>';}).join('')+'</div>':'<div class="mut">None</div>')+'</div>';
+}
+
+/* ===== TEAM (managers) ===== */
+function vTeam(){
+  var f=SUB.mf||'now';
+  var pend=S.requests.filter(function(r){return r.status==='pending';}).length;
+  var tabs=[['now','Now'],['hours','Hours'],['entries','Entries'],['req','Requests'+(pend?' ('+pend+')':'')],['bill','Billing']];
+  if(admin())tabs.push(['ppl','People']);
+  return '<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.mf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'+
+    ({now:tNow,hours:tHours,entries:tEntries,req:tReq,bill:tBill,ppl:tPeople}[f]||tNow)();
+}
+function staff(){return S.people.filter(function(p){return p.active&&p.role==='employee';});}
+function tNow(){
+  var on=S.entries.filter(function(e){return !e.end_at;});
+  var h='<div class="card"><h2>On the clock</h2>'+(on.length?'<div class="list">'+on.map(function(e){return '<div><div class="row"><div class="f"><b>'+esc(person(e.person_id).name)+'</b> · '+esc(jobById(e.job_id))+'</div>'+locTag(e.in_lat,e.in_lng,e.in_acc)+'</div>'+
+    '<div class="mut sm">since '+tm(e.start_at)+(ymd(e.start_at)!==today()?' ('+dlbl(ymd(e.start_at))+')':'')+' · '+hm(hrs(e.start_at))+(e.note?' · '+esc(e.note):'')+'</div>'+(hrs(e.start_at)>12?'<div class="flag">⚠ Running over 12 hours</div>':'')+
+    '<button class="s" style="margin-top:6px" onclick="entryForm(\''+e.id+'\')">Edit / clock out</button></div>';}).join('')+'</div>':'<div class="mut">Nobody is clocked in</div>')+'</div>';
+  staff().forEach(function(p){var tk=today();var es=S.entries.filter(function(e){return e.person_id===p.id&&ymd(e.start_at)===tk;});
+    var t=es.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);var first=es[0];
+    var m=summarize(p.id,PER||periodOf(today()));
+    h+='<div class="card"><h2>'+esc(p.name)+'</h2><div class="grid2"><div><div class="big">'+f2(t)+'</div><div class="mut sm">today'+(first?' · in '+tm(first.start_at):'')+'</div></div><div><div class="big">'+f2(m.worked)+'</div><div class="mut sm">this period</div></div></div>'+
+      (first?'<div class="mut sm" style="margin-top:6px">Clocked in: '+locTag(first.in_lat,first.in_lng,first.in_acc)+'</div>':'')+
+      (m.flags.length?'<div style="margin-top:6px">'+m.flags.map(function(d){return '<div class="flag">⚠ '+dlbl(d)+': no hours or time off</div>';}).join('')+'</div>':'')+'</div>';});
+  var pend=S.requests.filter(function(r){return r.status==='pending';});
+  if(pend.length)h+='<div class="card tap" onclick="SUB.mf=\'req\';render()"><h2>Waiting on you <span class="pill red">'+pend.length+'</span></h2><div class="mut sm">Time off and fix requests</div></div>';
+  return h;
+}
+function tHours(){var h=perBar();staff().forEach(function(p){h+=hoursCard(p.id,true);});
+  S.people.filter(function(p){return p.active&&p.role!=='employee';}).forEach(function(p){if(S.entries.some(function(e){return e.person_id===p.id;}))h+=hoursCard(p.id,true);});
+  return h+'<button class="b alt" onclick="csvPeriod()">Download CSV for this period</button>';}
+function tEntries(){
+  var per=PER||periodOf(today()),pf=SUB.ep||'';
+  var es=S.entries.filter(function(e){var d=ymd(e.start_at);return d>=per.start&&d<=per.end&&(!pf||e.person_id===pf);}).slice().reverse();
+  return perBar()+'<div class="row" style="margin-bottom:10px"><select class="f" onchange="SUB.ep=this.value;render()"><option value="">Everyone</option>'+S.people.map(function(p){return '<option value="'+p.id+'"'+(p.id===pf?' selected':'')+'>'+esc(p.name)+'</option>';}).join('')+'</select><button class="s" style="margin-top:5px" onclick="entryForm(\'\')">+ Add</button></div>'+
+    '<div class="card">'+(es.length?'<div class="list">'+es.map(function(e){return '<div class="tap" onclick="entryForm(\''+e.id+'\')"><div class="row"><div class="f"><b>'+esc(person(e.person_id).name)+'</b> · '+esc(jobById(e.job_id))+(e.billable?' <span class="pill">$</span>':'')+(e.billed_at?' <span class="pill gray">billed</span>':'')+'</div><div class="n">'+(e.end_at?f2(hrs(e.start_at,e.end_at)):'running')+'</div></div>'+
+      '<div class="mut sm">'+dlbl(ymd(e.start_at))+' · '+tm(e.start_at)+' – '+(e.end_at?tm(e.end_at):'now')+(e.note?' · '+esc(e.note):'')+'</div><div class="sm" style="margin-top:3px">in '+locTag(e.in_lat,e.in_lng,e.in_acc)+(e.end_at?' · out '+locTag(e.out_lat,e.out_lng,e.out_acc):'')+(e.source!=='clock'?' <span class="pill gray">'+esc(e.source)+'</span>':'')+(e.edited?' <span class="pill gray">edited</span>':'')+'</div></div>';}).join('')+'</div>':'<div class="mut">No entries</div>')+'</div>';
+}
+function entryForm(id){
+  var e=id?S.entries.filter(function(x){return x.id===id;})[0]:{person_id:staff()[0]?staff()[0].id:S.me.id,job_id:'',start_at:null,end_at:null,note:'',billable:false};
+  var d=e.start_at?ymd(e.start_at):today();
+  sheet('<h3>'+(id?'Edit entry':'Add entry')+'</h3><label>Person</label><select id="ep">'+S.people.map(function(p){return '<option value="'+p.id+'"'+(p.id===e.person_id?' selected':'')+'>'+esc(p.name)+'</option>';}).join('')+'</select>'+
+    '<label>Date</label><input type="date" id="ed" value="'+d+'"><div class="grid2"><div><label>Start</label><input type="time" id="es" value="'+(e.start_at?hhmm(e.start_at):'08:00')+'"></div><div><label>End (blank = running)</label><input type="time" id="ee" value="'+(e.end_at?hhmm(e.end_at):(id?'':'17:00'))+'"></div></div>'+
+    '<label>Job</label><select id="ej">'+jobOptions(e.job_id,true)+'</select><label><input type="checkbox" id="eb" style="width:auto" '+(e.billable?'checked':'')+'> Billable</label><label>Note</label><textarea id="en">'+esc(e.note||'')+'</textarea>'+
+    (id&&!e.end_at?'<button class="b red" onclick="$(\'ee\').value=\''+hhmm(new Date().toISOString())+'\';saveEntry(\''+id+'\')">Clock out now</button>':'')+
+    '<button class="b" onclick="saveEntry(\''+(id||'')+'\')">Save</button>'+(id?'<button class="b ghost" style="color:var(--red)" onclick="if(confirm(\'Delete this entry?\'))act(\'delete_entry\',{p_token:TOKEN,p_id:\''+id+'\'},closeSheet)">Delete</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function saveEntry(id){var d=$('ed').value,s=localIso(d,$('es').value),en=$('ee').value?localIso(d,$('ee').value):'';if(en&&en<=s)en=new Date(new Date(en).getTime()+864e5).toISOString();
+  act('save_entry',{p_token:TOKEN,e:{id:id,person_id:$('ep').value,job_id:$('ej').value||null,start_at:s,end_at:en,note:$('en').value,billable:$('eb').checked}},function(){closeSheet();toast('Saved');});}
+function tReq(){
+  var pend=S.requests.filter(function(r){return r.status==='pending';}),done=S.requests.filter(function(r){return r.status!=='pending';}).slice(0,30);
+  var ytd={};S.requests.forEach(function(r){if(r.status!=='approved'||['Sick','PTO','Holiday','Unpaid'].indexOf(r.type)<0||r.day.slice(0,4)!==today().slice(0,4))return;var k=person(r.person_id).name;ytd[k]=ytd[k]||{};ytd[k][r.type]=(ytd[k][r.type]||0)+(+r.hours);});
+  return '<div class="card"><h2>Waiting</h2>'+(pend.length?'<div class="list">'+pend.map(function(q){
+    var ex=(q.type==='Fix'||q.type==='Missing time')?'<div class="mut sm">'+tm(q.new_start)+' – '+tm(q.new_end)+(q.new_job_id?' · '+esc(jobById(q.new_job_id)):'')+'</div>':'';
+    return '<div><b>'+esc(person(q.person_id).name)+'</b> · '+esc(q.type)+' · '+dlbl(q.day)+' · '+f2(q.hours)+' h'+ex+(q.note?'<div class="mut sm">'+esc(q.note)+'</div>':'')+
+      '<div class="row" style="margin-top:6px"><button class="s pri" onclick="act(\'decide_request\',{p_token:TOKEN,p_id:\''+q.id+'\',p_ok:true,p_note:\'\'})">Approve</button><button class="s" onclick="var n=prompt(\'Reason (optional)\');if(n!==null)act(\'decide_request\',{p_token:TOKEN,p_id:\''+q.id+'\',p_ok:false,p_note:n})">Deny</button></div></div>';}).join('')+'</div>':'<div class="mut">Nothing waiting</div>')+'</div>'+
+    '<button class="b alt" style="margin:0 0 12px" onclick="addLeaveForm()">Add sick / PTO / holiday / unpaid</button>'+
+    (Object.keys(ytd).length?'<div class="card"><h2>Time off this year</h2>'+Object.keys(ytd).map(function(p){return '<div><b>'+esc(p)+'</b> · '+Object.keys(ytd[p]).map(function(t){return esc(t)+' '+f2(ytd[p][t])+' h';}).join(' · ')+'</div>';}).join('')+'</div>':'')+
+    '<div class="card"><h2>Decided</h2>'+(done.length?'<div class="list">'+done.map(function(q){return '<div class="row"><div class="f">'+esc(person(q.person_id).name)+' · '+esc(q.type)+' · '+dlbl(q.day)+' · '+f2(q.hours)+' h'+(q.note?'<div class="mut sm">'+esc(q.note)+'</div>':'')+'</div><span class="pill '+(q.status==='approved'?'':'red')+'">'+q.status+'</span></div>';}).join('')+'</div>':'<div class="mut">None</div>')+'</div>';
+}
+function addLeaveForm(){
+  sheet('<h3>Add time off</h3><label>Person</label><select id="ap">'+staff().map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join('')+'</select><label>Type</label><select id="at"><option>Sick</option><option>PTO</option><option>Holiday</option><option>Unpaid</option></select>'+
+    '<div class="grid2"><div><label>Date</label><input type="date" id="ad" value="'+today()+'"></div><div><label>Hours</label><input type="number" id="ah" value="8" step="0.25"></div></div><label>Note</label><input id="an">'+
+    '<button class="b" onclick="act(\'add_leave\',{p_token:TOKEN,p_person:$(\'ap\').value,p_type:$(\'at\').value,p_day:$(\'ad\').value,p_hours:+$(\'ah\').value,p_note:$(\'an\').value},function(){closeSheet();toast(\'Added\');})">Add</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+var BSEL={};
+function selAll(c){S.entries.forEach(function(e){if(!(e.billable&&e.end_at&&!e.billed_at))return;var j=job(e.job_id);var n=(j&&j.customer?j.customer:'No customer').replace(/'/g,'');if(esc(n)===c||n===c)BSEL[e.id]=true;});render();}
+function billSel(){var ids=Object.keys(BSEL).filter(function(k){return BSEL[k];});var r=prompt('Invoice number');if(!r)return;act('mark_billed',{p_token:TOKEN,p_ids:ids,p_ref:r},function(){BSEL={};toast('Marked billed');});}
+function tBill(){
+  var un=S.entries.filter(function(e){return e.billable&&e.end_at&&!e.billed_at;});
+  var byC={};un.forEach(function(e){var j=job(e.job_id);var c=j&&j.customer?j.customer:'No customer';(byC[c]=byC[c]||[]).push(e);});
+  var cs=Object.keys(byC).sort();
+  var h='<div class="mut sm" style="margin-bottom:10px">Billable time not yet invoiced. Tick entries, then mark them billed with the invoice number. One-tap draft invoices in Xero are coming with the Xero connection.</div>';
+  if(!cs.length)return h+'<div class="card"><div class="mut">Nothing unbilled</div></div>';
+  cs.forEach(function(c){var es=byC[c],tot=es.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);
+    h+='<div class="card"><h2>'+esc(c)+'<span>'+f2(tot)+' h</span></h2><div class="list">'+es.map(function(e){return '<div class="row tap" onclick="BSEL[\''+e.id+'\']=!BSEL[\''+e.id+'\'];render()"><div class="chk'+(BSEL[e.id]?' on':'')+'">'+(BSEL[e.id]?'✓':'')+'</div><div class="f"><div>'+esc(job(e.job_id)?job(e.job_id).name:'')+' · '+esc(person(e.person_id).name)+'</div><div class="mut sm">'+dlbl(ymd(e.start_at))+(e.note?' · '+esc(e.note):'')+'</div></div><div class="n">'+f2(hrs(e.start_at,e.end_at))+'</div></div>';}).join('')+'</div>'+
+      '<button class="s" style="margin-top:8px" onclick="selAll(\''+esc(c).replace(/'/g,'')+'\')">Select all</button></div>';});
+  var sel=Object.keys(BSEL).filter(function(k){return BSEL[k];});
+  if(sel.length)h+='<button class="b" onclick="billSel()">Mark '+sel.length+' billed</button>';
+  return h;
+}
+function tPeople(){
+  var shop=S.settings.shop;
+  return '<button class="b" style="margin:0 0 12px" onclick="personForm(\'\')">+ Add person</button><div class="card"><div class="list">'+S.people.map(function(p){return '<div class="tap" onclick="personForm(\''+p.id+'\')"><div class="row"><div class="f"><b>'+esc(p.name)+'</b></div><span class="pill '+(p.active?'':'gray')+'">'+p.role+'</span></div><div class="mut sm">code '+esc(p.code)+(p.note?' · '+esc(p.note):'')+'</div></div>';}).join('')+'</div></div>'+
+    '<div class="mut sm" style="margin-bottom:12px">Admin and partners: everything. Employees: clock, tasks, jobs, messages — never see dollar amounts or other people\'s hours.</div>'+
+    '<div class="card"><h2>Shop location</h2><div class="mut sm">'+(shop?'Set · '+shop.lat.toFixed(5)+', '+shop.lng.toFixed(5)+' · clock-ins more than '+((+S.settings.geofence_m||1600)/1609.34).toFixed(1)+' mi away are flagged':'Not set yet')+'</div>'+
+    '<button class="b alt" onclick="setShop()">Set shop location to where I am now</button>'+
+    '<label>Default labor rate for quotes ($/hr)</label><div class="row"><input id="lr" class="f" type="number" step="0.01" value="'+((S.settings.labor_rate&&S.settings.labor_rate.default)||'')+'"><button class="s" style="margin-top:5px" onclick="act(\'save_setting\',{p_token:TOKEN,p_key:\'labor_rate\',p_value:{default:+$(\'lr\').value}},function(){toast(\'Saved\');})">Save</button></div></div>';
+}
+function setShop(){busy(true);where().then(function(l){if(l.lat==null){busy(false);return alert('Could not get your location. Allow location for this site and try again.');}
+  return act('save_setting',{p_token:TOKEN,p_key:'shop',p_value:{lat:l.lat,lng:l.lng}},function(){toast('Shop location saved');});});}
+function personForm(id){
+  var p=id?person(id):{name:'',code:'',role:'employee',rate:'',active:true,note:''};
+  sheet('<h3>'+(id?'Edit '+esc(p.name):'New person')+'</h3><label>Name</label><input id="pn" value="'+esc(p.name)+'"><div class="grid2"><div><label>4-digit code</label><input id="pc" inputmode="numeric" maxlength="4" value="'+esc(p.code||'')+'"></div>'+
+    '<div><label>Role</label><select id="pr">'+['employee','partner','admin'].map(function(r){return '<option'+(r===p.role?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div></div>'+
+    '<label>Note</label><input id="pno" value="'+esc(p.note||'')+'"><label><input type="checkbox" id="pa" style="width:auto" '+(p.active?'checked':'')+'> Active</label>'+
+    '<button class="b" onclick="act(\'save_person\',{p_token:TOKEN,p:{id:\''+(id||'')+'\',name:$(\'pn\').value,code:$(\'pc\').value,role:$(\'pr\').value,rate:\''+(p.rate==null?'':p.rate)+'\',note:$(\'pno\').value,active:$(\'pa\').checked}},function(){closeSheet();toast(\'Saved\');})">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function csvPeriod(){
+  var per=PER||periodOf(today());var rows=[['Person','Date','Start','End','Hours','Customer','Job','Billable','Note']];
+  S.entries.filter(function(e){var d=ymd(e.start_at);return d>=per.start&&d<=per.end&&e.end_at;}).forEach(function(e){var j=job(e.job_id);rows.push([person(e.person_id).name,ymd(e.start_at),tm(e.start_at),tm(e.end_at),f2(hrs(e.start_at,e.end_at)),j&&j.customer||'',j?j.name:'',e.billable?'yes':'no',e.note||'']);});
+  S.requests.filter(function(r){return r.status==='approved'&&r.day>=per.start&&r.day<=per.end&&['Sick','PTO','Holiday','Unpaid'].indexOf(r.type)>=0;}).forEach(function(r){rows.push([person(r.person_id).name,r.day,'','',f2(r.hours),'',r.type+' (time off)','',r.note||'']);});
+  var csv=rows.map(function(r){return r.map(function(c){c=String(c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\n');
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='YA hours '+per.start+' to '+per.end+'.csv';document.body.appendChild(a);a.click();a.remove();
+}
+
+/* ===== start ===== */
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
+TOKEN=load('yaToken')||'';
+if(TOKEN)boot();else padView();
+</script>
+</body>
+</html>
