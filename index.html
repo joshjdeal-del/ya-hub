@@ -147,12 +147,13 @@ function where(){
   });
 }
 function distM(a,b,c,d){var R=6371000,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r;var h=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)*Math.sin(y/2);return 2*R*Math.asin(Math.sqrt(h));}
+function places(){var p=(S.settings&&S.settings.places)||[];if(!p.length&&S.settings&&S.settings.shop&&S.settings.shop.lat!=null)p=[{name:'shop',lat:S.settings.shop.lat,lng:S.settings.shop.lng}];return p;}
 function locTag(lat,lng,acc){
   if(lat==null)return '<span class="pill gray">no location</span>';
-  var shop=S.settings&&S.settings.shop,fence=+(S.settings&&S.settings.geofence_m)||1600,txt='map';
-  var cls='pill blue';
-  if(shop&&shop.lat!=null){var d=distM(shop.lat,shop.lng,lat,lng);if(d<=fence){txt='at shop';cls='pill';}else{txt=(d/1609.34).toFixed(1)+' mi away';cls='pill amb';}}
-  return '<a class="'+cls+'" target="_blank" href="https://maps.google.com/?q='+lat+','+lng+'">'+txt+'</a>';
+  var ps=places(),fence=+(S.settings&&S.settings.geofence_m)||1600,txt='map',cls='pill blue',best=null;
+  ps.forEach(function(p){var d=distM(p.lat,p.lng,lat,lng);if(!best||d<best.d)best={d:d,name:p.name};});
+  if(best){if(best.d<=fence){txt='at '+best.name;cls='pill';}else{txt=(best.d/1609.34).toFixed(1)+' mi from '+best.name;cls='pill amb';}}
+  return '<a class="'+cls+'" target="_blank" href="https://maps.google.com/?q='+lat+','+lng+'">'+esc(txt)+'</a>';
 }
 
 /* ===== sign in ===== */
@@ -734,12 +735,14 @@ function tPeople(){
   var shop=S.settings.shop;
   return '<button class="b" style="margin:0 0 12px" onclick="personForm(\'\')">+ Add person</button><div class="card"><div class="list">'+S.people.map(function(p){return '<div class="tap" onclick="personForm(\''+p.id+'\')"><div class="row"><div class="f"><b>'+esc(p.name)+'</b></div><span class="pill '+(p.active?'':'gray')+'">'+p.role+'</span></div><div class="mut sm">'+(/^\d{4}$/.test(p.code||'')?'code '+esc(p.code):'no login')+(p.note?' · '+esc(p.note):'')+'</div></div>';}).join('')+'</div></div>'+
     '<div class="mut sm" style="margin-bottom:12px">Admin and partners: everything; their time is for billing only, never payroll. Employees: the same jobs, quotes, tasks, billing and messages, but they can\'t edit time entries (fixes go through a request) or approve time off. Helpers have no login; an owner logs their time by hand and it never counts as payroll.</div>'+
-    '<div class="card"><h2>Shop location</h2><div class="mut sm">'+(shop?'Set · '+shop.lat.toFixed(5)+', '+shop.lng.toFixed(5)+' · clock-ins more than '+((+S.settings.geofence_m||1600)/1609.34).toFixed(1)+' mi away are flagged':'Not set yet')+'</div>'+
-    '<button class="b alt" onclick="setShop()">Set shop location to where I am now</button>'+
+    '<div class="card"><h2>Locations</h2><div class="mut sm">A clock-in within '+((+S.settings.geofence_m||1600)/1609.34).toFixed(1)+' mi of one of these shows as "at" that place. Anywhere else shows the miles from the nearest one.</div>'+
+    (places().length?'<div class="list">'+places().map(function(p,i){return '<div class="row"><div class="f"><b>'+esc(p.name)+'</b><div class="mut sm"><a target="_blank" href="https://maps.google.com/?q='+p.lat+','+p.lng+'">'+(+p.lat).toFixed(5)+', '+(+p.lng).toFixed(5)+'</a>'+(p.address?' · '+esc(p.address):'')+'</div></div><button class="s" onclick="delPlace('+i+')">Remove</button></div>';}).join('')+'</div>':'<div class="mut sm" style="margin-top:6px">None set yet</div>')+
+    '<button class="b alt" onclick="addPlace()">Add a location where I am now</button>'+
     '<label>Default labor rate for quotes ($/hr)</label><div class="row"><input id="lr" class="f" type="number" step="0.01" value="'+((S.settings.labor_rate&&S.settings.labor_rate.default)||'')+'"><button class="s" style="margin-top:5px" onclick="act(\'save_setting\',{p_token:TOKEN,p_key:\'labor_rate\',p_value:{default:+$(\'lr\').value}},function(){toast(\'Saved\');})">Save</button></div></div>';
 }
-function setShop(){busy(true);where().then(function(l){if(l.lat==null){busy(false);return alert('Could not get your location. Allow location for this site and try again.');}
-  return act('save_setting',{p_token:TOKEN,p_key:'shop',p_value:{lat:l.lat,lng:l.lng}},function(){toast('Shop location saved');});});}
+function addPlace(){var n=prompt('Name this location (for example: YA shop)');if(!n)return;busy(true);where().then(function(l){if(l.lat==null){busy(false);return alert('Could not get your location. Allow location for this site and try again.');}
+  var ps=places().filter(function(p){return p.name!==n;});ps.push({name:n,lat:l.lat,lng:l.lng});return act('save_setting',{p_token:TOKEN,p_key:'places',p_value:ps},function(){toast('Location saved');});});}
+function delPlace(i){var ps=places().slice();if(!confirm('Remove '+ps[i].name+'?'))return;ps.splice(i,1);act('save_setting',{p_token:TOKEN,p_key:'places',p_value:ps},function(){toast('Removed');});}
 function personForm(id){
   var p=id?person(id):{name:'',code:'',role:'employee',rate:'',active:true,note:''};
   sheet('<h3>'+(id?'Edit '+esc(p.name):'New person')+'</h3><label>Name</label><input id="pn" value="'+esc(p.name)+'"><div class="grid2"><div><label>4-digit code (blank for a helper)</label><input id="pc" inputmode="numeric" maxlength="4" value="'+esc(p.code||'')+'"></div>'+
