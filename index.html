@@ -128,6 +128,11 @@ function person(id){return (S.people||[]).filter(function(p){return p.id===id;})
 function job(id){return (S.jobs||[]).filter(function(j){return j.id===id;})[0]||null;}
 function cust(id){return (S.customers||[]).filter(function(c){return c.id===id;})[0]||null;}
 function jobName(j){if(!j)return 'No job';return (j.customer?j.customer+' · ':'')+j.name;}
+function isFarm(j){return j&&!j.customer_id&&j.kind==='Farm work';}
+function farmEntity(j){var i=j.name.indexOf(' · ');return i>0?j.name.slice(0,i):'Other';}
+function farmType(j){var i=j.name.indexOf(' · ');return i>0?j.name.slice(i+3):j.name;}
+function farmEntities(){var m={};(S.jobs||[]).forEach(function(j){if(isFarm(j))m[farmEntity(j)]=1;});return Object.keys(m).sort();}
+function billGroup(j){return j&&j.customer?j.customer:(isFarm(j)?farmEntity(j)+' (farm work)':'No customer');}
 function jobById(id){return jobName(job(id));}
 function running(pid){return (S.entries||[]).filter(function(e){return !e.end_at&&e.person_id===(pid||S.me.id);})[0]||null;}
 function openJobs(){return (S.jobs||[]).filter(function(j){return j.status==='open';});}
@@ -222,10 +227,10 @@ function tickClock(){clearInterval(tickT);var r=S&&running();if(!r)return;tickT=
 /* ===== job picker ===== */
 function jobOptions(sel,includeAll){
   var js=(includeAll?S.jobs:openJobs()).slice();
-  var internal=js.filter(function(j){return !j.customer_id;}),cust=js.filter(function(j){return j.customer_id;});
-  cust.sort(function(a,b){return (a.customer+a.name).localeCompare(b.customer+b.name);});
+  var internal=js.filter(function(j){return !j.customer_id&&!isFarm(j);}),farm=js.filter(isFarm),cust=js.filter(function(j){return j.customer_id;});
+  cust.sort(function(a,b){return (a.customer+a.name).localeCompare(b.customer+b.name);});farm.sort(function(a,b){return a.name.localeCompare(b.name);});
   function o(j){return '<option value="'+j.id+'"'+(j.id===sel?' selected':'')+'>'+esc(jobName(j))+(j.billable?' $':'')+'</option>';}
-  return '<option value="">— pick a job —</option><optgroup label="Customer jobs">'+cust.map(o).join('')+'</optgroup><optgroup label="Shop / internal">'+internal.map(o).join('')+'</optgroup>';
+  return '<option value="">— pick a job —</option><optgroup label="Customer jobs">'+cust.map(o).join('')+'</optgroup><optgroup label="Shop / internal">'+internal.map(o).join('')+'</optgroup>'+(farm.length?'<optgroup label="Farm work">'+farm.map(o).join('')+'</optgroup>':'');
 }
 
 /* ===== CLOCK ===== */
@@ -385,11 +390,15 @@ function vJobs(){
       return '<div class="tap row" onclick="custView(\''+c.id+'\')"><div class="f"><b>'+esc(c.name)+'</b>'+(c.town?' <span class="mut sm">'+esc(c.town)+'</span>':'')+'</div>'+(n?'<span class="pill">'+n+' open</span>':'')+'</div>';}).join('')+'</div></div>';
   }
   var js=S.jobs.filter(function(j){return (f==='open'?j.status==='open':j.status!=='open')&&(!q||(jobName(j)+' '+j.kind).toLowerCase().indexOf(q)>=0);});
-  var custJ=js.filter(function(j){return j.customer_id;}),inJ=js.filter(function(j){return !j.customer_id;});
+  var custJ=js.filter(function(j){return j.customer_id;}),inJ=js.filter(function(j){return !j.customer_id&&!isFarm(j);}),farmJ=js.filter(isFarm);
   custJ.sort(function(a,b){return (a.customer+a.name).localeCompare(b.customer+b.name);});
   h+='<button class="b" style="margin:0 0 12px" onclick="newJobForm(false)">+ New job</button>';
   h+='<div class="card"><h2>Customer jobs</h2>'+(custJ.length?'<div class="list">'+custJ.map(jobRow).join('')+'</div>':'<div class="mut">None</div>')+'</div>';
   if(inJ.length)h+='<div class="card"><h2>Shop / internal</h2><div class="list">'+inJ.map(jobRow).join('')+'</div></div>';
+  if(farmJ.length||f==='open'){var ents={};farmJ.forEach(function(j){(ents[farmEntity(j)]=ents[farmEntity(j)]||[]).push(j);});
+    h+='<div class="card"><h2>Farm work <button class="s" onclick="SUB.newFarm=true;jobForm(\'\')">+ Add</button></h2>'+(farmJ.length?Object.keys(ents).sort().map(function(e){return '<div style="margin-top:8px"><b>'+esc(e)+'</b><div class="list">'+ents[e].sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(j){
+      var on=S.entries.filter(function(x){return !x.end_at&&x.job_id===j.id;}).map(function(x){return person(x.person_id).name;});
+      return '<div class="tap row" onclick="jobView(\''+j.id+'\')"><div class="f">'+esc(farmType(j))+'</div>'+(on.length?'<span class="pill blue">'+esc(on.join(', '))+' on</span>':'')+(+j.spent_hours?'<span class="mut sm">'+f2(j.spent_hours)+' h</span>':'')+(+j.unbilled_hours?' <span class="pill amb">'+f2(j.unbilled_hours)+' unbilled</span>':'')+'</div>';}).join('')+'</div></div>';}).join(''):'<div class="mut sm">None yet</div>')+'</div>';}
   return h;
 }
 function jobRow(j){
@@ -476,13 +485,15 @@ function saveChange(jobId,cid){act('save_change',{p_token:TOKEN,c:{id:cid,job_id
 function billChange(cid){var r=prompt('Invoice number');if(!r)return;act('bill_changes',{p_token:TOKEN,p_ids:[cid],p_ref:r},function(){toast('Marked billed');});}
 function newJobForm(fromClock){SUB.fromClock=fromClock;jobForm('');}
 function jobForm(id){
-  var j=id?job(id):{name:'',customer_id:SUB.newJobCust||'',kind:'Service',billable:true,status:'open',quoted_hours:'',notes:''};
+  var j=id?job(id):{name:'',customer_id:SUB.newJobCust||'',kind:SUB.newFarm?'Farm work':'Service',billable:true,status:'open',quoted_hours:'',notes:''};SUB.newFarm=false;
+  var fe=isFarm(j)&&id?farmEntity(j):'',ft=isFarm(j)&&id?farmType(j):j.name;
   var kinds=['Install','Service','Inspection','Support','Sales','Farm work','Shop','Admin','Driving','Other'];
   sheet('<h3>'+(id?'Edit job':'New job')+'</h3><label>Customer</label><div class="row"><select id="jc" class="f"><option value="">— none (shop / internal) —</option>'+
     S.customers.filter(function(c){return c.active||c.id===j.customer_id;}).map(function(c){return '<option value="'+c.id+'"'+(c.id===j.customer_id?' selected':'')+'>'+esc(c.name)+'</option>';}).join('')+
     '</select><button class="s" style="margin-top:5px" onclick="quickCust()">+ New</button></div>'+
-    '<label>Job name</label><input id="jn" value="'+esc(j.name)+'" placeholder="e.g. 16-row vSet install">'+
-    '<div class="grid2"><div><label>Type</label><select id="jk">'+kinds.map(function(k){return '<option'+(k===j.kind?' selected':'')+'>'+k+'</option>';}).join('')+'</select></div>'+
+    '<div id="farmBox" style="display:'+(j.kind==='Farm work'?'block':'none')+'"><label>Farm entity</label><input id="jfe" list="feList" value="'+esc(fe)+'" placeholder="e.g. Ideal Farms"><datalist id="feList">'+farmEntities().map(function(e){return '<option value="'+esc(e)+'">';}).join('')+'</datalist></div>'+
+    '<label id="jnl">'+(j.kind==='Farm work'?'Type of work':'Job name')+'</label><input id="jn" value="'+esc(ft)+'" placeholder="e.g. 16-row vSet install">'+
+    '<div class="grid2"><div><label>Type</label><select id="jk" onchange="var fw=this.value===\'Farm work\';$(\'farmBox\').style.display=fw?\'block\':\'none\';$(\'jnl\').textContent=fw?\'Type of work\':\'Job name\';">'+kinds.map(function(k){return '<option'+(k===j.kind?' selected':'')+'>'+k+'</option>';}).join('')+'</select></div>'+
     '<div><label>Quoted hours</label><input id="jq2" type="number" step="0.25" value="'+(j.quoted_hours==null?'':j.quoted_hours)+'"></div></div>'+
     '<label><input type="checkbox" id="jb" style="width:auto" '+(j.billable?'checked':'')+'> Billable to the customer</label>'+
     (id?'<label>Status</label><select id="js"><option value="open"'+(j.status==='open'?' selected':'')+'>Open</option><option value="done"'+(j.status==='done'?' selected':'')+'>Done</option><option value="archived"'+(j.status==='archived'?' selected':'')+'>Archived</option></select>':'')+
@@ -491,7 +502,8 @@ function jobForm(id){
 }
 function quickCust(){var n=prompt('New customer name');if(!n)return;rpc('save_customer',{p_token:TOKEN,c:{name:n}}).then(function(r){return refresh(true).then(function(){var sel=$('jc');if(sel){var o=document.createElement('option');o.value=r.id;o.textContent=n;o.selected=true;sel.appendChild(o);}});}).catch(function(e){alert(e.message);});}
 function saveJob(id){
-  var j={id:id,customer_id:$('jc').value,name:$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};
+  var fw=$('jk').value==='Farm work',en=$('jfe').value.trim();if(fw&&!en)return alert('Which farm entity is this for?');
+  var j={id:id,customer_id:fw?'':$('jc').value,name:fw?en+' · '+$('jn').value.trim():$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};
   act('save_job',{p_token:TOKEN,j:j},function(r){closeSheet();if(SUB.fromClock&&!id){SUB.pickJob=r.id;SUB.fromClock=false;go('clock');}toast('Saved');});
 }
 function custView(id){
@@ -683,11 +695,11 @@ function addLeaveForm(){
     '<button class="b" onclick="act(\'add_leave\',{p_token:TOKEN,p_person:$(\'ap\').value,p_type:$(\'at\').value,p_day:$(\'ad\').value,p_hours:+$(\'ah\').value,p_note:$(\'an\').value},function(){closeSheet();toast(\'Added\');})">Add</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
 var BSEL={};
-function selAll(c){S.entries.forEach(function(e){if(!(e.billable&&e.end_at&&!e.billed_at))return;var j=job(e.job_id);var n=(j&&j.customer?j.customer:'No customer').replace(/'/g,'');if(esc(n)===c||n===c)BSEL[e.id]=true;});render();}
+function selAll(c){S.entries.forEach(function(e){if(!(e.billable&&e.end_at&&!e.billed_at))return;var j=job(e.job_id);var n=billGroup(j).replace(/'/g,'');if(esc(n)===c||n===c)BSEL[e.id]=true;});render();}
 function billSel(){var ids=Object.keys(BSEL).filter(function(k){return BSEL[k];});var r=prompt('Invoice number');if(!r)return;act('mark_billed',{p_token:TOKEN,p_ids:ids,p_ref:r},function(){BSEL={};toast('Marked billed');});}
 function tBill(){
   var un=S.entries.filter(function(e){return e.billable&&e.end_at&&!e.billed_at;});
-  var byC={};un.forEach(function(e){var j=job(e.job_id);var c=j&&j.customer?j.customer:'No customer';(byC[c]=byC[c]||[]).push(e);});
+  var byC={};un.forEach(function(e){var j=job(e.job_id);var c=billGroup(j);(byC[c]=byC[c]||[]).push(e);});
   var cs=Object.keys(byC).sort();
   var h='<div class="mut sm" style="margin-bottom:10px">Billable time and change-order parts not yet invoiced. Tick entries, then mark them billed with the invoice number. One-tap draft invoices in Xero are coming with the Xero connection.</div>';
   var uc=(S.changes||[]).filter(function(c){return !c.billed_at&&((+c.qty)*(+c.unit_price)>0);});
