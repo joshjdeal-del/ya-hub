@@ -70,6 +70,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 14px;border-radius:10px;font-size:14px;display:none;z-index:30;max-width:90%}
 .search{position:relative}.search input{padding-left:34px}.search svg{position:absolute;left:10px;top:15px;width:18px;height:18px;color:var(--mut)}
 .right{text-align:right}.hide{display:none}
+.sxw{position:sticky;top:0;height:0;z-index:6;text-align:right}.sx{width:38px;height:38px;border-radius:19px;border:1px solid #cfd6cc;background:#fff;color:#333;font-size:17px;line-height:1;padding:0;margin:-6px -6px 0 0;box-shadow:0 1px 4px rgba(0,0,0,.15)}#sheetIn>h3{padding-right:44px}
 </style>
 </head>
 <body>
@@ -125,9 +126,14 @@ function ago(iso){var m=Math.round((Date.now()-new Date(iso))/6e4);if(m<1)return
 function mgr(){return S&&(S.me.role==='admin'||S.me.role==='partner');}
 function admin(){return S&&S.me.role==='admin';}
 function rate(){return (S.settings.labor_rate&&+S.settings.labor_rate.default)||0;}
+function rateMap(){return (S.settings.labor_rate&&S.settings.labor_rate.by_customer)||{};}
+function nameRate(n){var v=rateMap()[String(n||'').trim().toLowerCase()];return v==null||v===''?null:+v;}
+function custRate(c){return c?nameRate(c.name):null;}
+function rateFor(j){var r=j?nameRate(j.customer_id?j.customer:(isFarm(j)?farmEntity(j):'')):null;return r==null?rate():r;}
+function saveRates(def,map){return rpc('save_setting',{p_token:TOKEN,p_key:'labor_rate',p_value:{default:def,by_customer:map}},true);}
 function jobQuotes(id){return (S.quotes||[]).filter(function(q){return q.job_id===id&&(q.status==='accepted'||q.status==='sent');});}
 function billables(j){
-  var out=[],fixed=j.labor_mode==='fixed',r=rate();
+  var out=[],fixed=j.labor_mode==='fixed',r=rateFor(j);
   jobQuotes(j.id).forEach(function(q){(q.lines||[]).forEach(function(l){
     if(l.kind==='labor'&&!fixed)return;
     out.push({t:'line',id:l.id,label:(l.kind==='labor'?'Quoted labor: ':'')+((+l.qty!==1&&l.kind!=='labor')?n0(l.qty)+' × ':'')+(l.description||''),sub:l.kind==='labor'?n0(l.qty)+' h quoted, fixed price':(l.item_code?'#'+l.item_code:''),amt:(+l.qty||0)*(+l.unit_price||0),ref:l.billed_at?(l.billed_ref||'billed'):'',ok:true});});});
@@ -240,7 +246,7 @@ function render(){
   tickClock();
 }
 function go(t){TAB=t;if(t!=='msgs')THREAD=null;window.scrollTo(0,0);render();}
-function sheet(h){$('sheetIn').innerHTML=h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
+function sheet(h){$('sheetIn').innerHTML='<div class="sxw"><button class="sx" onclick="closeSheet()" aria-label="Close">✕</button></div>'+h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
 function closeSheet(){$('sheet').style.display='none';}
 $('sheet').addEventListener('click',function(e){if(e.target.id==='sheet')closeSheet();});
 var tickT=null;
@@ -438,7 +444,7 @@ function jobView(id){
   var h='<h3>'+esc(jobName(j))+'</h3><div class="mut">'+esc(j.kind)+' · '+(j.billable?'billable':'not billable')+' · '+j.status+'</div>'+(j.notes?'<p style="white-space:pre-wrap">'+esc(j.notes)+'</p>':'')+(mgr()&&j.owner_notes?'<p class="sm" style="white-space:pre-wrap;background:var(--amb2);border-radius:8px;padding:8px"><b>Owners only:</b> '+esc(j.owner_notes)+'</p>':'')+
     '<div class="card" style="margin-top:10px"><h2>Quoted vs actual</h2>'+(jobProgress(j)||'<div class="mut sm">'+f2(j.spent_hours)+' h spent</div>')+
     (j.quoted_parts?'<div class="mut sm" style="margin-top:6px">Quoted parts '+money(j.quoted_parts)+'</div>':'')+
-    (mgr()&&j.customer_id?'<div class="mut sm" style="margin-top:6px">Labor billing: '+(j.labor_mode==='fixed'?'fixed price (the quoted labor)':'time and materials (actual hours × '+money(rate())+')')+'</div>':'')+'</div>'+billCard(j)+
+    (mgr()&&j.customer_id?'<div class="mut sm" style="margin-top:6px">Labor billing: '+(j.labor_mode==='fixed'?'fixed price (the quoted labor)':'time and materials (actual hours × '+money(rateFor(j))+(rateFor(j)!==rate()?', owner rate':'')+')')+'</div>':'')+'</div>'+billCard(j)+
     (qs.length?'<div class="card"><h2>Quotes</h2><div class="list">'+qs.map(quoteRow).join('')+'</div></div>':'')+
     stageCard(j)+partsCard(id)+changesCard(id)+
     '<div class="grid2"><button class="b" style="margin:0" onclick="startOn(\''+id+'\')">Start clock here</button><button class="b alt" style="margin:0" onclick="closeSheet();openThread(\''+id+'\')">Messages</button></div>'+
@@ -589,17 +595,27 @@ function saveJob(id){
 function custView(id){
   var c=cust(id);var js=S.jobs.filter(function(j){return j.customer_id===id;});
   sheet('<h3>'+esc(c.name)+'</h3><div class="mut">'+[c.town,c.phone,c.email].filter(Boolean).map(esc).join(' · ')+'</div>'+(c.phone?'<a class="s" style="display:inline-block;margin-top:8px" href="tel:'+esc(c.phone)+'">Call</a>':'')+
-    (c.notes?'<p style="white-space:pre-wrap">'+esc(c.notes)+'</p>':'')+
+    (c.notes?'<p style="white-space:pre-wrap">'+esc(c.notes)+'</p>':'')+(mgr()&&custRate(c)!=null?'<div class="mut sm">Labor rate '+money(custRate(c))+'/hr</div>':'')+
     '<div class="card" style="margin-top:10px"><h2>Jobs <button class="s" onclick="SUB.newJobCust=\''+id+'\';jobForm(\'\');SUB.newJobCust=null">+ Job</button></h2>'+(js.length?'<div class="list">'+js.map(function(j){return '<div class="tap" onclick="jobView(\''+j.id+'\')"><div class="row"><div class="f">'+esc(j.name)+'</div><span class="pill '+(j.status==='open'?'':'gray')+'">'+j.status+'</span></div>'+jobProgress(j)+'</div>';}).join('')+'</div>':'<div class="mut sm">No jobs</div>')+'</div>'+
     '<button class="b ghost" onclick="custForm(\''+id+'\')">Edit customer</button><button class="b ghost" onclick="closeSheet()">Close</button>');
+}
+function saveCust(id){
+  var old=id?cust(id).name:'',c={id:id,name:$('cn').value,phone:$('cp').value,town:$('ct').value,email:$('ce').value,notes:$('cno').value};if(id)c.active=$('ca').checked;
+  var lr=$('clr')?$('clr').value:null;
+  rpc('save_customer',{p_token:TOKEN,c:c}).then(function(){
+    if(lr===null)return;var m=JSON.parse(JSON.stringify(rateMap())),k=c.name.trim().toLowerCase(),ok=old.trim().toLowerCase();
+    var was=m[ok]==null?'':String(m[ok]);if(ok===k&&was===String(lr))return;
+    delete m[ok];if(lr!=='')m[k]=+lr;return saveRates(rate(),m);
+  }).then(function(){return refresh(true);}).then(function(){closeSheet();toast('Saved');}).catch(function(e){alert(e.message);});
 }
 function custForm(id){
   var c=id?cust(id):{name:'',phone:'',email:'',town:'',notes:'',active:true};
   sheet('<h3>'+(id?'Edit customer':'New customer')+'</h3><label>Name</label><input id="cn" value="'+esc(c.name)+'">'+
     '<div class="grid2"><div><label>Phone</label><input id="cp" type="tel" value="'+esc(c.phone||'')+'"></div><div><label>Town</label><input id="ct" value="'+esc(c.town||'')+'"></div></div>'+
     '<label>Email</label><input id="ce" type="email" value="'+esc(c.email||'')+'"><label>Notes</label><textarea id="cno">'+esc(c.notes||'')+'</textarea>'+
+    (mgr()?'<label>Labor rate $/hr (blank = standard '+money(rate())+')</label><input id="clr" type="number" step="0.01" value="'+(custRate(c)==null?'':custRate(c))+'">':'')+
     (id?'<label><input type="checkbox" id="ca" style="width:auto" '+(c.active?'checked':'')+'> Active</label>':'')+
-    '<button class="b" onclick="act(\'save_customer\',{p_token:TOKEN,c:{id:\''+(id||'')+'\',name:$(\'cn\').value,phone:$(\'cp\').value,town:$(\'ct\').value,email:$(\'ce\').value,notes:$(\'cno\').value'+(id?',active:$(\'ca\').checked':'')+'}},function(){closeSheet();toast(\'Saved\');})">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+    '<button class="b" onclick="saveCust(\''+(id||'')+'\')">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
 
 /* ===== QUOTES (managers) ===== */
@@ -616,7 +632,7 @@ function vQuotes(qs){
 var QL=[];
 function quoteForm(id,jobId){
   var q=id?S.quotes.filter(function(x){return x.id===id;})[0]:{title:'',number:'',status:'draft',customer_id:jobId&&job(jobId)?job(jobId).customer_id:'',job_id:jobId||'',notes:'',valid_until:'',lines:[]};
-  var rate=(S.settings.labor_rate&&S.settings.labor_rate.default)||'';
+  var rate=(q.customer_id&&custRate(cust(q.customer_id))!=null?custRate(cust(q.customer_id)):(S.settings.labor_rate&&S.settings.labor_rate.default))||'';
   QL=(q.lines||[]).map(function(l){return {kind:l.kind,item_code:l.item_code||'',description:l.description||'',qty:l.qty,unit_price:l.unit_price,installed_qty:l.installed_qty||0,ordered_qty:l.ordered_qty||0,received_qty:l.received_qty||0,billed_ref:l.billed_ref||'',billed_at:l.billed_at||''};});
   if(!QL.length)QL=[{kind:'labor',item_code:'',description:'Labor',qty:'',unit_price:rate}];
   sheet('<h3>'+(id?'Quote':'New quote')+'</h3><label>Title</label><input id="qt" value="'+esc(q.title)+'">'+
@@ -817,7 +833,7 @@ function tPeople(){
     '<div class="card"><h2>Locations</h2><div class="mut sm">A clock-in within '+((+S.settings.geofence_m||1600)/1609.34).toFixed(1)+' mi of one of these shows as "at" that place. Anywhere else shows the miles from the nearest one.</div>'+
     (places().length?'<div class="list">'+places().map(function(p,i){return '<div class="row"><div class="f"><b>'+esc(p.name)+'</b><div class="mut sm"><a target="_blank" href="https://maps.google.com/?q='+p.lat+','+p.lng+'">'+(+p.lat).toFixed(5)+', '+(+p.lng).toFixed(5)+'</a>'+(p.address?' · '+esc(p.address):'')+'</div></div><button class="s" onclick="delPlace('+i+')">Remove</button></div>';}).join('')+'</div>':'<div class="mut sm" style="margin-top:6px">None set yet</div>')+
     '<button class="b alt" onclick="addPlace()">Add a location where I am now</button>'+
-    '<label>Default labor rate for quotes ($/hr)</label><div class="row"><input id="lr" class="f" type="number" step="0.01" value="'+((S.settings.labor_rate&&S.settings.labor_rate.default)||'')+'"><button class="s" style="margin-top:5px" onclick="act(\'save_setting\',{p_token:TOKEN,p_key:\'labor_rate\',p_value:{default:+$(\'lr\').value}},function(){toast(\'Saved\');})">Save</button></div></div>';
+    '<label>Standard labor rate ($/hr). Owner entities and other special rates are set on the customer.</label><div class="row"><input id="lr" class="f" type="number" step="0.01" value="'+((S.settings.labor_rate&&S.settings.labor_rate.default)||'')+'"><button class="s" style="margin-top:5px" onclick="saveRates(+$(\'lr\').value,rateMap()).then(function(){return refresh(true);}).then(function(){toast(\'Saved\');}).catch(function(e){alert(e.message);})">Save</button></div></div>';
 }
 function addPlace(){var n=prompt('Name this location (for example: YA shop)');if(!n)return;busy(true);where().then(function(l){if(l.lat==null){busy(false);return alert('Could not get your location. Allow location for this site and try again.');}
   var ps=places().filter(function(p){return p.name!==n;});ps.push({name:n,lat:l.lat,lng:l.lng});return act('save_setting',{p_token:TOKEN,p_key:'places',p_value:ps},function(){toast('Location saved');});});}
