@@ -124,6 +124,24 @@ function ago(iso){var m=Math.round((Date.now()-new Date(iso))/6e4);if(m<1)return
 /* ===== lookups ===== */
 function mgr(){return S&&(S.me.role==='admin'||S.me.role==='partner');}
 function admin(){return S&&S.me.role==='admin';}
+function rate(){return (S.settings.labor_rate&&+S.settings.labor_rate.default)||0;}
+function jobQuotes(id){return (S.quotes||[]).filter(function(q){return q.job_id===id&&(q.status==='accepted'||q.status==='sent');});}
+function billables(j){
+  var out=[],fixed=j.labor_mode==='fixed',r=rate();
+  jobQuotes(j.id).forEach(function(q){(q.lines||[]).forEach(function(l){
+    if(l.kind==='labor'&&!fixed)return;
+    out.push({t:'line',id:l.id,label:(l.kind==='labor'?'Quoted labor: ':'')+((+l.qty!==1&&l.kind!=='labor')?n0(l.qty)+' × ':'')+(l.description||''),sub:l.kind==='labor'?n0(l.qty)+' h quoted, fixed price':(l.item_code?'#'+l.item_code:''),amt:(+l.qty||0)*(+l.unit_price||0),ref:l.billed_at?(l.billed_ref||'billed'):'',ok:true});});});
+  jobChanges(j.id).forEach(function(c){
+    var amt=(+c.qty||0)*(+c.unit_price||0);
+    if(amt||!(+c.add_hours))out.push({t:'chg',id:c.id,label:'Extra: '+n0(c.qty)+' × '+c.description,sub:amt?'change order':'change order, needs a price',amt:amt,ref:c.billed_at?(c.billed_ref||'billed'):'',ok:!!c.customer_ok,noprice:!amt});
+    if(fixed&&+c.add_hours)out.push({t:'chgl',id:c.id,label:'Extra labor: '+c.description,sub:f2(c.add_hours)+' h × '+money(r),amt:Math.round((+c.add_hours)*r*100)/100,ref:c.labor_billed_at?(c.labor_billed_ref||'billed'):'',ok:!!c.customer_ok});
+  });
+  if(!fixed)S.entries.forEach(function(e){if(e.job_id!==j.id||!e.billable||!e.end_at)return;var h=hrs(e.start_at,e.end_at);
+    out.push({t:'ent',id:e.id,label:'Labor: '+person(e.person_id).name+' '+dlbl(ymd(e.start_at)),sub:f2(h)+' h × '+money(r)+(e.note?' · '+e.note:''),amt:Math.round(h*r*100)/100,ref:e.billed_at?(e.billed_ref||'billed'):'',ok:true,at:e.end_at});});
+  return out;
+}
+function billSum(j){var b=mgr()?billables(j):[],ready=0,billed=0,hold=0;b.forEach(function(x){if(x.ref)billed+=x.amt;else if(x.ok)ready+=x.amt;else hold+=x.amt;});return {items:b,ready:ready,billed:billed,hold:hold};}
+function setView(m){rpc('set_view',{p_token:TOKEN,p_mode:m}).then(function(){closeSheet();SUB={};return refresh();}).then(function(){toast(m?'Showing the employee view':'Back to the owner view');}).catch(function(e){alert(e.message);});}
 function person(id){return (S.people||[]).filter(function(p){return p.id===id;})[0]||{name:'?'};}
 function job(id){return (S.jobs||[]).filter(function(j){return j.id===id;})[0]||null;}
 function cust(id){return (S.customers||[]).filter(function(c){return c.id===id;})[0]||null;}
@@ -203,7 +221,10 @@ var ICON={
 function unreadCount(){var n=0;threads().forEach(function(t){n+=t.unread;});return n;}
 function render(){
   if(!S)return;
-  $('who').innerHTML=esc(S.me.name)+' <button onclick="signOut()">Sign out</button>';
+  var real=S.me.real||S.me.role,canView=real==='admin'||real==='partner';
+  $('who').innerHTML=esc(S.me.name)+(canView&&!S.me.viewing?' <button onclick="setView(\'employee\')">Employee view</button>':'')+' <button onclick="signOut()">Sign out</button>';
+  if(TAB==='team'&&!mgr())TAB='clock';if(TAB==='me'&&mgr())TAB='team';
+  if(!mgr()&&(SUB.jf==='quotes'||SUB.jf==='bill'))SUB.jf='open';
   var tabs=[['clock','Clock'],['tasks','Tasks'],['jobs','Jobs'],['msgs','Messages']];
   tabs.push(mgr()?['team','Team']:['me','My hours']);
   var un=unreadCount(),pend=mgr()?S.requests.filter(function(r){return r.status==='pending';}).length:0;
@@ -212,7 +233,7 @@ function render(){
     return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+ICON[t[0]]+t[1]+dot+'</button>';}).join('');
   var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
   var keep={};['mb','in','rn'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
-  $('app').innerHTML=f();
+  $('app').innerHTML=(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();
   Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
   if(foc&&keep[foc]!==undefined&&$(foc)){$(foc).focus();}
   if(TAB==='msgs'&&THREAD){var b=$('msgBox');if(b)b.scrollIntoView(false);}
@@ -380,7 +401,7 @@ function jobProgress(j){
 }
 function vJobs(){
   var f=SUB.jf||'open',q=(SUB.jq||'').toLowerCase();
-  var tabs=[['open','Open'],['quotes','Quotes'],['bill','Billing'],['cust','Customers'],['done','Finished']];
+  var tabs=mgr()?[['open','Open'],['quotes','Quotes'],['bill','Billing'],['cust','Customers'],['done','Finished']]:[['open','Open'],['cust','Customers'],['done','Finished']];
   var h='<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.jf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>';
   h+='<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="jq" placeholder="Search" value="'+esc(SUB.jq||'')+'" oninput="SUB.jq=this.value;clearTimeout(window._jq);window._jq=setTimeout(function(){render();var i=$(\'jq\');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250)"></div><div style="height:10px"></div>';
   if(f==='quotes')return h+vQuotes(q);
@@ -400,14 +421,14 @@ function vJobs(){
   if(farmJ.length||f==='open'){var ents={};farmJ.forEach(function(j){(ents[farmEntity(j)]=ents[farmEntity(j)]||[]).push(j);});
     h+='<div class="card"><h2>Farm work <button class="s" onclick="SUB.newFarm=true;jobForm(\'\')">+ Add</button></h2>'+(farmJ.length?Object.keys(ents).sort().map(function(e){return '<div style="margin-top:8px"><b>'+esc(e)+'</b><div class="list">'+ents[e].sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(j){
       var on=S.entries.filter(function(x){return !x.end_at&&x.job_id===j.id;}).map(function(x){return person(x.person_id).name;});
-      return '<div class="tap row" onclick="jobView(\''+j.id+'\')"><div class="f">'+esc(farmType(j))+'</div>'+(on.length?'<span class="pill blue">'+esc(on.join(', '))+' on</span>':'')+(+j.spent_hours?'<span class="mut sm">'+f2(j.spent_hours)+' h</span>':'')+(+j.unbilled_hours?' <span class="pill amb">'+f2(j.unbilled_hours)+' unbilled</span>':'')+'</div>';}).join('')+'</div></div>';}).join(''):'<div class="mut sm">None yet</div>')+'</div>';}
+      return '<div class="tap row" onclick="jobView(\''+j.id+'\')"><div class="f">'+esc(farmType(j))+'</div>'+(on.length?'<span class="pill blue">'+esc(on.join(', '))+' on</span>':'')+(+j.spent_hours?'<span class="mut sm">'+f2(j.spent_hours)+' h</span>':'')+(billSum(j).ready?' <span class="pill amb">'+money(billSum(j).ready)+' to bill</span>':'')+'</div>';}).join('')+'</div></div>';}).join(''):'<div class="mut sm">None yet</div>')+'</div>';}
   return h;
 }
 function jobRow(j){
   var on=S.entries.filter(function(e){return !e.end_at&&e.job_id===j.id;}).map(function(e){return person(e.person_id).name;});
   var tk=S.tasks.filter(function(t){return t.job_id===j.id&&t.status!=='done';}).length;
   return '<div class="tap" onclick="jobView(\''+j.id+'\')"><div class="row"><div class="f"><b>'+esc(j.customer?j.customer:j.name)+'</b>'+(j.customer?' <span class="mut">· '+esc(j.name)+'</span>':'')+'</div>'+
-    (on.length?'<span class="pill blue">'+esc(on.join(', '))+' on</span>':'')+(tk?' <span class="pill gray">'+tk+' tasks</span>':'')+(j.customer_id&&j.stage&&j.status==='open'?' <span class="pill gray">'+esc(stageLbl(j.stage))+'</span>':'')+(jobChanges(j.id).length?' <span class="pill blue">'+jobChanges(j.id).length+' change</span>':'')+(+j.unbilled_hours?' <span class="pill amb">'+f2(j.unbilled_hours)+' unbilled</span>':'')+'</div>'+jobProgress(j)+'</div>';
+    (on.length?'<span class="pill blue">'+esc(on.join(', '))+' on</span>':'')+(tk?' <span class="pill gray">'+tk+' tasks</span>':'')+(j.customer_id&&j.stage&&j.status==='open'?' <span class="pill gray">'+esc(stageLbl(j.stage))+'</span>':'')+(jobChanges(j.id).length?' <span class="pill blue">'+jobChanges(j.id).length+' change</span>':'')+(billSum(j).ready?' <span class="pill amb">'+money(billSum(j).ready)+' to bill</span>':'')+'</div>'+jobProgress(j)+'</div>';
 }
 function jobView(id){
   var j=job(id);if(!j)return;
@@ -417,17 +438,56 @@ function jobView(id){
   var h='<h3>'+esc(jobName(j))+'</h3><div class="mut">'+esc(j.kind)+' · '+(j.billable?'billable':'not billable')+' · '+j.status+'</div>'+(j.notes?'<p style="white-space:pre-wrap">'+esc(j.notes)+'</p>':'')+
     '<div class="card" style="margin-top:10px"><h2>Quoted vs actual</h2>'+(jobProgress(j)||'<div class="mut sm">'+f2(j.spent_hours)+' h spent</div>')+
     (j.quoted_parts?'<div class="mut sm" style="margin-top:6px">Quoted parts '+money(j.quoted_parts)+'</div>':'')+
-    (+j.unbilled_hours?'<div class="mut sm">Unbilled billable hours: '+f2(j.unbilled_hours)+'</div>':'')+'</div>'+
+    (mgr()&&j.customer_id?'<div class="mut sm" style="margin-top:6px">Labor billing: '+(j.labor_mode==='fixed'?'fixed price (the quoted labor)':'time and materials (actual hours × '+money(rate())+')')+'</div>':'')+'</div>'+billCard(j)+
     (qs.length?'<div class="card"><h2>Quotes</h2><div class="list">'+qs.map(quoteRow).join('')+'</div></div>':'')+
     stageCard(j)+partsCard(id)+changesCard(id)+
     '<div class="grid2"><button class="b" style="margin:0" onclick="startOn(\''+id+'\')">Start clock here</button><button class="b alt" style="margin:0" onclick="closeSheet();openThread(\''+id+'\')">Messages</button></div>'+
     '<div class="card" style="margin-top:12px"><h2>Tasks <button class="s" onclick="SUB.taskJob=\''+id+'\';taskForm(\'\')">+ Add</button></h2>'+(tk.length?'<div class="list">'+tk.map(taskRow).join('')+'</div>':'<div class="mut sm">No open tasks</div>')+'</div>'+
     '<div class="card"><h2>Recent time</h2>'+(es.length?'<div class="list">'+es.map(function(e){return '<div class="tap" onclick="entryTap(\''+e.id+'\')"><div class="row"><div class="f">'+esc(person(e.person_id).name)+' · '+dlbl(ymd(e.start_at))+'</div><div class="n">'+(e.end_at?f2(hrs(e.start_at,e.end_at)):'running')+'</div></div>'+(e.note?'<div class="mut sm">'+esc(e.note)+'</div>':'')+'</div>';}).join('')+'</div>':'<div class="mut sm">No time in the last few weeks</div>')+'</div>'+
-    '<div class="grid2"><button class="b ghost" style="margin:0" onclick="jobForm(\''+id+'\')">Edit job</button>'+(true?'<button class="b ghost" style="margin:0" onclick="quoteForm(\'\',\''+id+'\')">+ Quote</button>':'<span></span>')+'</div>'+
+    '<div class="grid2"><button class="b ghost" style="margin:0" onclick="jobForm(\''+id+'\')">Edit job</button>'+(mgr()?'<button class="b ghost" style="margin:0" onclick="quoteForm(\'\',\''+id+'\')">+ Quote</button>':'<span></span>')+'</div>'+
     (j.status==='open'?'<button class="b alt" onclick="finishJob(\''+id+'\',\'done\')">Finish job</button>':
       '<div class="grid2"><button class="b alt" style="margin-top:8px" onclick="finishJob(\''+id+'\',\'open\')">Reopen job</button>'+(j.status==='done'?'<button class="b ghost" style="margin-top:8px" onclick="finishJob(\''+id+'\',\'archived\')">Archive</button>':'<span></span>')+'</div>')+
     '<button class="b ghost" onclick="closeSheet()">Close</button>';
   sheet(h);
+}
+function billCard(j){
+  if(!mgr())return '';var s=billSum(j);if(!s.items.length)return '';
+  var refs={};s.items.forEach(function(x){if(x.ref)refs[x.ref]=(refs[x.ref]||0)+x.amt;});
+  var un=s.items.filter(function(x){return !x.ref;});
+  return '<div class="card"><h2>Billing <span>'+money(s.ready)+' ready to bill</span></h2>'+
+    Object.keys(refs).map(function(r){return '<div class="row mut sm"><span class="f">Billed on '+esc(r)+'</span><span>'+money(refs[r])+'</span></div>';}).join('')+
+    (s.hold?'<div class="row sm" style="color:var(--amb)"><span class="f">Waiting on customer approval</span><span>'+money(s.hold)+'</span></div>':'')+
+    (un.length?'<div class="list" style="margin-top:6px">'+un.slice(0,8).map(function(x){return '<div class="row"><div class="f"><div>'+esc(x.label)+'</div><div class="mut sm">'+esc(x.sub)+(x.ok?'':' · <span style="color:var(--amb)">customer has not approved</span>')+'</div></div><div class="n">'+money(x.amt)+'</div></div>';}).join('')+'</div>'+(un.length>8?'<div class="mut sm">and '+(un.length-8)+' more</div>':'')+
+      '<button class="b alt" onclick="billForm(\''+j.id+'\')">Mark billed…</button>':'<div class="mut sm" style="margin-top:6px">Everything on this job is billed.</div>')+
+    (Object.keys(refs).length?'<button class="s" style="margin-top:8px" onclick="unbill(\''+j.id+'\')">Undo a billing</button>':'')+'</div>';
+}
+var BS={};
+function billForm(id,keep){
+  var j=job(id),un=billSum(j).items.filter(function(x){return !x.ref;});
+  var ref=keep&&$('bref')?$('bref').value:'';
+  if(!keep){BS={};un.forEach(function(x){BS[x.t+x.id]=x.ok&&!x.noprice;});}
+  var tot=un.reduce(function(a,x){return a+(BS[x.t+x.id]?x.amt:0);},0);
+  sheet('<h3>Mark billed</h3><div class="mut sm">'+esc(jobName(j))+'</div><div class="list" style="margin-top:8px">'+un.map(function(x){var k=x.t+x.id;
+    return '<div class="row tap" onclick="BS[\''+k+'\']=!BS[\''+k+'\'];billForm(\''+id+'\',true)"><div class="chk'+(BS[k]?' on':'')+'">'+(BS[k]?'✓':'')+'</div><div class="f"><div>'+esc(x.label)+'</div><div class="mut sm">'+esc(x.sub)+(x.ok?'':' · <span style="color:var(--amb)">customer has not approved</span>')+'</div></div><div class="n">'+money(x.amt)+'</div></div>';}).join('')+'</div>'+
+    '<div class="row" style="margin-top:10px"><b class="f">Selected</b><b>'+money(tot)+'</b></div><label>Invoice number</label><input id="bref" value="'+esc(ref)+'" placeholder="INV-0000">'+
+    '<button class="b" onclick="billSave(\''+id+'\')">Mark billed</button><button class="b ghost" onclick="jobView(\''+id+'\')">Back</button>');
+}
+function billCall(id,ref,items){
+  var a={line:[],chg:[],chgl:[],ent:[]},tot=0;items.forEach(function(x){a[x.t].push(x.id);tot+=x.amt;});
+  return rpc('bill_items',{p_token:TOKEN,p_job:id,p_ref:ref,p_lines:a.line.length?a.line:null,p_changes:a.chg.length?a.chg:null,p_change_labor:a.chgl.length?a.chgl:null,p_entries:a.ent.length?a.ent:null,p_amount:Math.round(tot*100)/100},true)
+    .then(function(){return refresh(true);}).then(function(){jobView(id);});
+}
+function billSave(id){
+  var ref=$('bref').value.trim();if(!ref)return alert('Enter the invoice number');
+  var items=billSum(job(id)).items.filter(function(x){return !x.ref&&BS[x.t+x.id];});if(!items.length)return alert('Nothing is ticked');
+  billCall(id,ref,items).then(function(){toast('Marked billed on '+ref);}).catch(function(e){alert(e.message);});
+}
+function unbill(id){
+  var items=billSum(job(id)).items.filter(function(x){return x.ref;}),refs={};items.forEach(function(x){refs[x.ref]=1;});
+  var r=prompt('Set which invoice back to not billed?\n'+Object.keys(refs).join(', '));if(!r)return;r=r.trim();
+  var pick=items.filter(function(x){return x.ref.toLowerCase()===r.toLowerCase();});if(!pick.length)return alert('Nothing on this job is billed on '+r);
+  if(!confirm('Set '+pick.length+' item(s) on '+r+' back to not billed?'))return;
+  billCall(id,'',pick).then(function(){toast('Set back to not billed');}).catch(function(e){alert(e.message);});
 }
 var STAGES=[['quote','Quote'],['accepted','Accepted'],['ordered','Parts ordered'],['received','Parts received'],['install','Install / drop off'],['done','Done']];
 function stageLbl(k){for(var i=0;i<STAGES.length;i++)if(STAGES[i][0]===k)return STAGES[i][1];return k;}
@@ -469,32 +529,31 @@ function changesCard(id){
   return '<div class="card"><h2>Change orders <button class="s" onclick="changeForm(\''+id+'\',\'\')">+ Add</button></h2>'+(cs.length?'<div class="list">'+cs.map(function(c){
     var amt=(+c.qty||0)*(+c.unit_price||0);
     return '<div class="tap" onclick="changeForm(\''+id+'\',\''+c.id+'\')"><div class="row"><div class="f"><b>'+esc(c.description)+'</b></div><span class="pill '+(c.customer_ok?'':'amb')+'">'+(c.customer_ok?'customer OK':'not approved yet')+'</span></div>'+
-      '<div class="mut sm">'+(c.item_code?'#'+esc(c.item_code)+' · ':'')+(amt?(+c.qty)+' × '+money(c.unit_price)+' = '+money(amt)+' · ':'')+(+c.add_hours?'+'+f2(c.add_hours)+' hrs · ':'')+(c.installed?'on · ':'')+(c.billed_at?'billed '+esc(c.billed_ref||''):'not billed')+' · '+esc(person(c.created_by).name)+' '+dlbl(ymd(c.created_at))+'</div>'+
+      '<div class="mut sm">'+(c.item_code?'#'+esc(c.item_code)+' · ':'')+(amt?(+c.qty)+' × '+money(c.unit_price)+' = '+money(amt)+' · ':'')+(+c.add_hours?'+'+f2(c.add_hours)+' hrs · ':'')+(c.installed?'on · ':'')+(mgr()?(c.billed_at?'billed '+esc(c.billed_ref||''):'not billed')+' · ':'')+esc(person(c.created_by).name)+' '+dlbl(ymd(c.created_at))+'</div>'+
       (c.ok_note?'<div class="mut sm">'+esc(c.ok_note)+'</div>':'')+'</div>';}).join('')+'</div>':'<div class="mut sm">None. Add one for any part or work that was not on the quote.</div>')+'</div>';
 }
 function changeForm(jobId,cid){
   var c=cid?(S.changes||[]).filter(function(x){return x.id===cid;})[0]:{description:'',item_code:'',qty:1,unit_price:'',add_hours:'',customer_ok:false,ok_note:'',installed:false};
   sheet('<h3>'+(cid?'Change order':'New change order')+'</h3><div class="mut sm">'+esc(jobById(jobId))+'</div><label>What changed</label><input id="cd" value="'+esc(c.description)+'" placeholder="e.g. Replace 23 Keeton firmers">'+
     '<label>Part # (optional)</label><input id="ci" value="'+esc(c.item_code||'')+'">'+
-    '<div class="grid2"><div><label>Qty</label><input id="cq" type="number" step="0.25" value="'+(+c.qty||1)+'"></div><div><label>Price each</label><input id="cpz" type="number" step="0.01" value="'+(c.unit_price===''?'':+c.unit_price||'')+'"></div></div>'+
+    '<div class="grid2"><div><label>Qty</label><input id="cq" type="number" step="0.25" value="'+(+c.qty||1)+'"></div>'+(mgr()?'<div><label>Price each</label><input id="cpz" type="number" step="0.01" value="'+(c.unit_price===''?'':+c.unit_price||'')+'"></div>':'<div></div>')+'</div>'+
     '<label>Extra labor hours (adds to the quoted hours once the customer approves)</label><input id="chh" type="number" step="0.25" value="'+(c.add_hours===''?'':+c.add_hours||'')+'">'+
     '<label><input type="checkbox" id="cok" style="width:auto" '+(c.customer_ok?'checked':'')+'> Customer approved</label>'+
     '<label>Who approved and how (call, text, in person)</label><input id="con" value="'+esc(c.ok_note||'')+'">'+
     '<label><input type="checkbox" id="cin" style="width:auto" '+(c.installed?'checked':'')+'> Part is on / work is done</label>'+
     '<button class="b" onclick="saveChange(\''+jobId+'\',\''+(cid||'')+'\')">Save</button>'+
-    (cid&&!c.billed_at?'<button class="b ghost" style="color:var(--red)" onclick="if(confirm(\'Delete this change order?\'))act(\'delete_change\',{p_token:TOKEN,p_id:\''+cid+'\'},function(){jobView(\''+jobId+'\');})">Delete</button>':'')+
+    (cid&&!c.billed_at&&!c.labor_billed_at&&(mgr()||c.created_by===S.me.id)?'<button class="b ghost" style="color:var(--red)" onclick="if(confirm(\'Delete this change order?\'))act(\'delete_change\',{p_token:TOKEN,p_id:\''+cid+'\'},function(){jobView(\''+jobId+'\');})">Delete</button>':'')+
     '<button class="b ghost" onclick="jobView(\''+jobId+'\')">Back</button>');
 }
-function saveChange(jobId,cid){act('save_change',{p_token:TOKEN,c:{id:cid,job_id:jobId,description:$('cd').value,item_code:$('ci').value,qty:$('cq').value,unit_price:$('cpz').value,add_hours:$('chh').value,customer_ok:$('cok').checked,ok_note:$('con').value,installed:$('cin').checked}},function(){jobView(jobId);toast('Saved');});}
-function billChange(cid){var r=prompt('Invoice number');if(!r)return;act('bill_changes',{p_token:TOKEN,p_ids:[cid],p_ref:r},function(){toast('Marked billed');});}
+function saveChange(jobId,cid){var c={id:cid,job_id:jobId,description:$('cd').value,item_code:$('ci').value,qty:$('cq').value,add_hours:$('chh').value,customer_ok:$('cok').checked,ok_note:$('con').value,installed:$('cin').checked};if($('cpz'))c.unit_price=$('cpz').value;act('save_change',{p_token:TOKEN,c:c},function(){jobView(jobId);toast('Saved');});}
 function finishJob(id,st){
   var j=job(id);if(!j)return;
   if(st==='done'){
     var on=S.entries.filter(function(e){return !e.end_at&&e.job_id===id;}).map(function(e){return person(e.person_id).name;});
     if(on.length)return alert(on.join(', ')+' is still clocked in on this job. Clock out first.');
     var ps=jobParts(id),left=ps.filter(function(l){return +l.installed_qty<+l.qty;}).length;
-    var uc=jobChanges(id).filter(function(c){return !c.billed_at&&(+c.qty)*(+c.unit_price)>0;}).length;
-    var msg='Finish this job?'+(+j.unbilled_hours?'\n\n'+f2(j.unbilled_hours)+' billable hours are not billed yet. They stay on the Billing tab.':'')+(uc?'\n'+uc+' change-order part line(s) are not billed yet.':'')+(left?'\n'+left+' of '+ps.length+' parts are not marked on.':'');
+    var bs=billSum(j);
+    var msg='Finish this job?'+(bs.ready?'\n\n'+money(bs.ready)+' is ready to bill. It stays on the Billing tab until it is marked billed.':'')+(bs.hold?'\n'+money(bs.hold)+' in change orders is waiting on customer approval.':'')+(left?'\n'+left+' of '+ps.length+' parts are not marked on.':'');
     if(!confirm(msg))return;
   }
   if(st==='archived'&&!confirm('Archive this job? It leaves the Finished list after 60 days but its hours and history are kept.'))return;
@@ -515,6 +574,7 @@ function jobForm(id){
     '<div class="grid2"><div><label>Type</label><select id="jk" onchange="var fw=this.value===\'Farm work\';$(\'farmBox\').style.display=fw?\'block\':\'none\';$(\'jnl\').textContent=fw?\'Type of work\':\'Job name\';">'+kinds.map(function(k){return '<option'+(k===j.kind?' selected':'')+'>'+k+'</option>';}).join('')+'</select></div>'+
     '<div><label>Quoted hours</label><input id="jq2" type="number" step="0.25" value="'+(j.quoted_hours==null?'':j.quoted_hours)+'"></div></div>'+
     '<label><input type="checkbox" id="jb" style="width:auto" '+(j.billable?'checked':'')+'> Billable to the customer</label>'+
+    (mgr()?'<label>Labor billing</label><select id="jlm"><option value="fixed"'+(j.labor_mode==='fixed'?' selected':'')+'>Fixed price: bill the quoted labor</option><option value="tm"'+(j.labor_mode!=='fixed'?' selected':'')+'>Time and materials: bill actual hours</option></select>':'')+
     (id?'<label>Status</label><select id="js"><option value="open"'+(j.status==='open'?' selected':'')+'>Open</option><option value="done"'+(j.status==='done'?' selected':'')+'>Done</option><option value="archived"'+(j.status==='archived'?' selected':'')+'>Archived</option></select>':'')+
     '<label>Notes</label><textarea id="jno">'+esc(j.notes||'')+'</textarea>'+
     '<button class="b" onclick="saveJob(\''+(id||'')+'\')">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
@@ -522,7 +582,7 @@ function jobForm(id){
 function quickCust(){var n=prompt('New customer name');if(!n)return;rpc('save_customer',{p_token:TOKEN,c:{name:n}}).then(function(r){return refresh(true).then(function(){var sel=$('jc');if(sel){var o=document.createElement('option');o.value=r.id;o.textContent=n;o.selected=true;sel.appendChild(o);}});}).catch(function(e){alert(e.message);});}
 function saveJob(id){
   var fw=$('jk').value==='Farm work',en=$('jfe').value.trim();if(fw&&!en)return alert('Which farm entity is this for?');
-  var j={id:id,customer_id:fw?'':$('jc').value,name:fw?en+' · '+$('jn').value.trim():$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};
+  var j={id:id,customer_id:fw?'':$('jc').value,name:fw?en+' · '+$('jn').value.trim():$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};if($('jlm')&&(id||$('jlm').value==='fixed'))j.labor_mode=$('jlm').value;
   act('save_job',{p_token:TOKEN,j:j},function(r){closeSheet();if(SUB.fromClock&&!id){SUB.pickJob=r.id;SUB.fromClock=false;go('clock');}toast('Saved');});
 }
 function custView(id){
@@ -544,18 +604,19 @@ function custForm(id){
 /* ===== QUOTES (managers) ===== */
 function qTotals(q){var l=0,p=0,lh=0;(q.lines||[]).forEach(function(x){var t=(+x.qty||0)*(+x.unit_price||0);if(x.kind==='labor'){l+=t;lh+=+x.qty||0;}else p+=t;});return {labor:l,parts:p,hours:lh,total:l+p};}
 function quoteRow(q){var t=qTotals(q);var cls={draft:'pill gray',sent:'pill blue',accepted:'pill',declined:'pill red'}[q.status];
+  if(!mgr())return '<div><div class="row"><div class="f"><b>'+esc(q.title)+'</b></div><span class="'+cls+'">'+q.status+'</span></div>'+(t.hours?'<div class="mut sm">'+f2(t.hours)+' labor hrs quoted</div>':'')+'</div>';
   return '<div class="tap" onclick="quoteForm(\''+q.id+'\')"><div class="row"><div class="f"><b>'+esc(q.title)+'</b>'+(q.number?' <span class="mut sm">#'+esc(q.number)+'</span>':'')+'</div><span class="'+cls+'">'+q.status+'</span></div>'+
     '<div class="mut sm">'+esc(q.customer_id&&cust(q.customer_id)?cust(q.customer_id).name:'No customer')+' · '+money(t.total)+(t.hours?' · '+f2(t.hours)+' labor hrs':'')+(q.job_id?' · linked to job':'')+'</div></div>';}
 function vQuotes(qs){
   var list=S.quotes.filter(function(q){return !qs||(q.title+' '+(q.number||'')+' '+(cust(q.customer_id)||{}).name).toLowerCase().indexOf(qs)>=0;});
   return '<button class="b" style="margin:0 0 12px" onclick="quoteForm(\'\',\'\')">+ New quote</button><div class="card">'+(list.length?'<div class="list">'+list.map(quoteRow).join('')+'</div>':'<div class="mut">No quotes yet</div>')+'</div>'+
-    '<div class="mut sm">Xero sync (import your Xero quotes, send these to Xero) is coming next.</div>';
+    '<div class="mut sm">The Xero connection (import quotes, send draft invoices) is the next step.</div>';
 }
 var QL=[];
 function quoteForm(id,jobId){
   var q=id?S.quotes.filter(function(x){return x.id===id;})[0]:{title:'',number:'',status:'draft',customer_id:jobId&&job(jobId)?job(jobId).customer_id:'',job_id:jobId||'',notes:'',valid_until:'',lines:[]};
   var rate=(S.settings.labor_rate&&S.settings.labor_rate.default)||'';
-  QL=(q.lines||[]).map(function(l){return {kind:l.kind,item_code:l.item_code||'',description:l.description||'',qty:l.qty,unit_price:l.unit_price,installed_qty:l.installed_qty||0,ordered_qty:l.ordered_qty||0,received_qty:l.received_qty||0};});
+  QL=(q.lines||[]).map(function(l){return {kind:l.kind,item_code:l.item_code||'',description:l.description||'',qty:l.qty,unit_price:l.unit_price,installed_qty:l.installed_qty||0,ordered_qty:l.ordered_qty||0,received_qty:l.received_qty||0,billed_ref:l.billed_ref||'',billed_at:l.billed_at||''};});
   if(!QL.length)QL=[{kind:'labor',item_code:'',description:'Labor',qty:'',unit_price:rate}];
   sheet('<h3>'+(id?'Quote':'New quote')+'</h3><label>Title</label><input id="qt" value="'+esc(q.title)+'">'+
     '<div class="grid2"><div><label>Customer</label><select id="qc"><option value="">—</option>'+S.customers.map(function(c){return '<option value="'+c.id+'"'+(c.id===q.customer_id?' selected':'')+'>'+esc(c.name)+'</option>';}).join('')+'</select></div>'+
@@ -651,10 +712,29 @@ function vMe(){
 function vTeam(){
   var f=SUB.mf||'now';
   var pend=S.requests.filter(function(r){return r.status==='pending';}).length;
-  var tabs=[['now','Now'],['hours','Hours'],['entries','Entries'],['req','Requests'+(pend?' ('+pend+')':'')],['bill','Billing']];
+  var tabs=[['now','Now'],['feed','Feed'],['hours','Hours'],['entries','Entries'],['req','Requests'+(pend?' ('+pend+')':'')],['bill','Billing']];
   if(admin())tabs.push(['ppl','People']);
   return '<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.mf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'+
-    ({now:tNow,hours:tHours,entries:tEntries,req:tReq,bill:tBill,ppl:tPeople}[f]||tNow)();
+    ({now:tNow,feed:tFeed,hours:tHours,entries:tEntries,req:tReq,bill:tBill,ppl:tPeople}[f]||tNow)();
+}
+function attention(){
+  var a=[];S.jobs.forEach(function(j){if(j.status==='archived')return;var s=billSum(j);
+    if(j.status==='done'&&s.ready>0)a.push({j:j.id,cls:'',t:'Finished: '+money(s.ready)+' ready to bill'});
+    var q=(+j.quoted_hours||0)+coHours(j.id),sp=+j.spent_hours||0;
+    if(j.status==='open'&&q&&sp>=q*0.9)a.push({j:j.id,cls:sp>q?'red':'amb',t:sp>q?f2(sp-q)+' h over the quoted '+f2(q)+' h':Math.round(sp/q*100)+'% of quoted hours used ('+f2(sp)+' of '+f2(q)+')'});
+    jobChanges(j.id).forEach(function(c){if(c.billed_at)return;
+      if(!c.customer_ok)a.push({j:j.id,cls:'amb',t:'Change order not approved by the customer: '+c.description});
+      if(!(+c.unit_price)&&!(+c.add_hours))a.push({j:j.id,cls:'amb',t:'Change order needs a price: '+c.description});});
+    var old=s.items.filter(function(x){return x.t==='ent'&&!x.ref&&x.at&&(Date.now()-new Date(x.at))>30*864e5;});
+    if(old.length)a.push({j:j.id,cls:'amb',t:old.length+(old.length>1?' labor entries':' labor entry')+' unbilled over 30 days ('+money(old.reduce(function(p,x){return p+x.amt;},0))+')'});
+  });return a;
+}
+function tFeed(){
+  var ready=0,hold=0;S.jobs.forEach(function(j){var s=billSum(j);ready+=s.ready;hold+=s.hold;});
+  var at=attention(),fd=S.feed||[];
+  return '<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="tap" onclick="TAB=\'jobs\';SUB.jf=\'bill\';render()"><div class="big" style="font-size:26px">'+money(ready)+'</div><div class="mut sm">ready to bill</div></div><div><div class="big" style="font-size:26px">'+money(hold)+'</div><div class="mut sm">waiting on customer approval</div></div></div><div class="mut sm" style="margin-top:6px">Owners only. Employees never see prices or billing.</div></div>'+
+    '<div class="card"><h2>Needs attention <span>'+at.length+'</span></h2>'+(at.length?'<div class="list">'+at.map(function(x){return '<div class="tap" onclick="jobView(\''+x.j+'\')"><div><b>'+esc(jobById(x.j))+'</b></div><div class="sm"'+(x.cls?' style="color:var(--'+x.cls+')"':'')+'>'+esc(x.t)+'</div></div>';}).join('')+'</div>':'<div class="mut">Nothing right now</div>')+'</div>'+
+    '<div class="card"><h2>Activity</h2>'+(fd.length?'<div class="list">'+fd.map(function(x){return '<div'+(x.job_id&&job(x.job_id)?' class="tap" onclick="jobView(\''+x.job_id+'\')"':'')+'><div class="row"><div class="f">'+esc(x.body)+'</div><span class="mut sm">'+ago(x.at)+'</span></div><div class="mut sm">'+(x.job_id&&job(x.job_id)?esc(jobById(x.job_id)):'')+(x.person_id?' · '+esc(person(x.person_id).name):'')+'</div></div>';}).join('')+'</div>':'<div class="mut sm">New jobs, stage changes, change orders, approvals and billing show up here as they happen.</div>')+'</div>';
 }
 function staff(){return S.people.filter(function(p){return p.active&&p.role==='employee';});}
 function tNow(){
@@ -715,29 +795,24 @@ function addLeaveForm(){
     '<div class="grid2"><div><label>Date</label><input type="date" id="ad" value="'+today()+'"></div><div><label>Hours</label><input type="number" id="ah" value="8" step="0.25"></div></div><label>Note</label><input id="an">'+
     '<button class="b" onclick="act(\'add_leave\',{p_token:TOKEN,p_person:$(\'ap\').value,p_type:$(\'at\').value,p_day:$(\'ad\').value,p_hours:+$(\'ah\').value,p_note:$(\'an\').value},function(){closeSheet();toast(\'Added\');})">Add</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
-var BSEL={};
-function selAll(c){S.entries.forEach(function(e){if(!(e.billable&&e.end_at&&!e.billed_at))return;var j=job(e.job_id);var n=billGroup(j).replace(/'/g,'');if(esc(n)===c||n===c)BSEL[e.id]=true;});render();}
-function billSel(){var ids=Object.keys(BSEL).filter(function(k){return BSEL[k];});var r=prompt('Invoice number');if(!r)return;act('mark_billed',{p_token:TOKEN,p_ids:ids,p_ref:r},function(){BSEL={};toast('Marked billed');});}
 function tBill(){
-  var un=S.entries.filter(function(e){return e.billable&&e.end_at&&!e.billed_at;});
-  var byC={};un.forEach(function(e){var j=job(e.job_id);var c=billGroup(j);(byC[c]=byC[c]||[]).push(e);});
-  var cs=Object.keys(byC).sort();
-  var h='<div class="mut sm" style="margin-bottom:10px">Billable time and change-order parts not yet invoiced. Tick entries, then mark them billed with the invoice number. One-tap draft invoices in Xero are coming with the Xero connection.</div>';
-  var uc=(S.changes||[]).filter(function(c){return !c.billed_at&&((+c.qty)*(+c.unit_price)>0);});
-  var coh='';if(uc.length)coh='<div class="card"><h2>Change-order parts not billed</h2><div class="list">'+uc.map(function(c){var j=job(c.job_id);return '<div><div class="row"><div class="f"><b>'+esc(j?jobName(j):'')+'</b></div><div class="n">'+money((+c.qty)*(+c.unit_price))+'</div></div><div class="mut sm">'+(+c.qty)+' × '+esc(c.description)+(c.item_code?' #'+esc(c.item_code):'')+(c.customer_ok?'':' · <span style="color:var(--amb)">customer has not approved</span>')+'</div><button class="s" style="margin-top:4px" onclick="billChange(\''+c.id+'\')">Mark billed</button></div>';}).join('')+'</div></div>';
-  if(!cs.length)return h+(coh||'<div class="card"><div class="mut">Nothing unbilled</div></div>');
-  h+=coh;
-  cs.forEach(function(c){var es=byC[c],tot=es.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);
-    h+='<div class="card"><h2>'+esc(c)+'<span>'+f2(tot)+' h</span></h2><div class="list">'+es.map(function(e){return '<div class="row tap" onclick="BSEL[\''+e.id+'\']=!BSEL[\''+e.id+'\'];render()"><div class="chk'+(BSEL[e.id]?' on':'')+'">'+(BSEL[e.id]?'✓':'')+'</div><div class="f"><div>'+esc(job(e.job_id)?job(e.job_id).name:'')+' · '+esc(person(e.person_id).name)+'</div><div class="mut sm">'+dlbl(ymd(e.start_at))+(e.note?' · '+esc(e.note):'')+'</div></div><div class="n">'+f2(hrs(e.start_at,e.end_at))+'</div></div>';}).join('')+'</div>'+
-      '<button class="s" style="margin-top:8px" onclick="selAll(\''+esc(c).replace(/'/g,'')+'\')">Select all</button></div>';});
-  var sel=Object.keys(BSEL).filter(function(k){return BSEL[k];});
-  if(sel.length)h+='<button class="b" onclick="billSel()">Mark '+sel.length+' billed</button>';
+  var g={},ready=0,hold=0;
+  S.jobs.forEach(function(j){var x=billSum(j);if(!(x.ready||x.hold))return;ready+=x.ready;hold+=x.hold;var c=billGroup(j);(g[c]=g[c]||[]).push({j:j,s:x});});
+  var cs=Object.keys(g).sort();
+  var h='<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="big" style="font-size:26px">'+money(ready)+'</div><div class="mut sm">ready to bill</div></div><div><div class="big" style="font-size:26px">'+money(hold)+'</div><div class="mut sm">waiting on customer approval</div></div></div>'+
+    '<div class="mut sm" style="margin-top:6px">Quoted parts and labor, change orders and time-and-materials hours that are not on an invoice yet. Open a job to tick what went on an invoice.</div></div>';
+  if(!cs.length)return h+'<div class="card"><div class="mut">Nothing unbilled</div></div>';
+  cs.forEach(function(c){var tot=g[c].reduce(function(a,x){return a+x.s.ready;},0);
+    h+='<div class="card"><h2>'+esc(c)+'<span>'+money(tot)+'</span></h2><div class="list">'+g[c].map(function(x){var n=x.s.items.filter(function(i){return !i.ref;}).length;
+      return '<div class="tap row" onclick="jobView(\''+x.j.id+'\')"><div class="f"><div>'+esc(isFarm(x.j)?farmType(x.j):x.j.name)+(x.j.status==='done'?' <span class="pill">finished</span>':'')+'</div><div class="mut sm">'+n+' item'+(n===1?'':'s')+' · '+(x.j.labor_mode==='fixed'?'fixed labor':'time and materials')+(x.s.hold?' · <span style="color:var(--amb)">'+money(x.s.hold)+' not approved</span>':'')+'</div></div><div class="n">'+money(x.s.ready)+'</div></div>';}).join('')+'</div></div>';});
   return h;
 }
+function backupNow(){rpc('backup_now',{p_token:TOKEN}).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(b,null,1)],{type:'application/json'}));a.download='YA Hub backup '+today()+'.json';document.body.appendChild(a);a.click();a.remove();toast('Backup downloaded');}).catch(function(e){alert(e.message);});}
 function tPeople(){
   var shop=S.settings.shop;
   return '<button class="b" style="margin:0 0 12px" onclick="personForm(\'\')">+ Add person</button><div class="card"><div class="list">'+S.people.map(function(p){return '<div class="tap" onclick="personForm(\''+p.id+'\')"><div class="row"><div class="f"><b>'+esc(p.name)+'</b></div><span class="pill '+(p.active?'':'gray')+'">'+p.role+'</span></div><div class="mut sm">'+(/^\d{4}$/.test(p.code||'')?'code '+esc(p.code):'no login')+(p.note?' · '+esc(p.note):'')+'</div></div>';}).join('')+'</div></div>'+
-    '<div class="mut sm" style="margin-bottom:12px">Admin and partners: everything; their time is for billing only, never payroll. Employees: the same jobs, quotes, tasks, billing and messages, but they can\'t edit time entries (fixes go through a request) or approve time off. Helpers have no login; an owner logs their time by hand and it never counts as payroll.</div>'+
+    '<div class="mut sm" style="margin-bottom:12px">Owners (admin and partners): everything, including prices, billing and the Feed; their time is for billing only, never payroll. Employees: clock, tasks, messages, jobs, parts check-offs and change orders, but no prices, no billing and no one else\'s payroll hours; time fixes go through a request. Helpers have no login; an owner logs their time by hand and it never counts as payroll. Use "Employee view" at the top to see exactly what an employee sees.</div>'+
+    '<div class="card"><h2>Backup</h2><div class="mut sm">Saves a file with every job, quote, change order, time entry, task and message.</div><button class="b alt" onclick="backupNow()">Download a backup file</button></div>'+
     '<div class="card"><h2>Locations</h2><div class="mut sm">A clock-in within '+((+S.settings.geofence_m||1600)/1609.34).toFixed(1)+' mi of one of these shows as "at" that place. Anywhere else shows the miles from the nearest one.</div>'+
     (places().length?'<div class="list">'+places().map(function(p,i){return '<div class="row"><div class="f"><b>'+esc(p.name)+'</b><div class="mut sm"><a target="_blank" href="https://maps.google.com/?q='+p.lat+','+p.lng+'">'+(+p.lat).toFixed(5)+', '+(+p.lng).toFixed(5)+'</a>'+(p.address?' · '+esc(p.address):'')+'</div></div><button class="s" onclick="delPlace('+i+')">Remove</button></div>';}).join('')+'</div>':'<div class="mut sm" style="margin-top:6px">None set yet</div>')+
     '<button class="b alt" onclick="addPlace()">Add a location where I am now</button>'+
