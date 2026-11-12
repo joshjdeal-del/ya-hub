@@ -435,7 +435,7 @@ function jobView(id){
   var es=S.entries.filter(function(e){return e.job_id===id;}).slice().reverse().slice(0,25);
   var tk=S.tasks.filter(function(t){return t.job_id===id&&t.status!=='done';});
   var qs=S.quotes.filter(function(q){return q.job_id===id;});
-  var h='<h3>'+esc(jobName(j))+'</h3><div class="mut">'+esc(j.kind)+' · '+(j.billable?'billable':'not billable')+' · '+j.status+'</div>'+(j.notes?'<p style="white-space:pre-wrap">'+esc(j.notes)+'</p>':'')+
+  var h='<h3>'+esc(jobName(j))+'</h3><div class="mut">'+esc(j.kind)+' · '+(j.billable?'billable':'not billable')+' · '+j.status+'</div>'+(j.notes?'<p style="white-space:pre-wrap">'+esc(j.notes)+'</p>':'')+(mgr()&&j.owner_notes?'<p class="sm" style="white-space:pre-wrap;background:var(--amb2);border-radius:8px;padding:8px"><b>Owners only:</b> '+esc(j.owner_notes)+'</p>':'')+
     '<div class="card" style="margin-top:10px"><h2>Quoted vs actual</h2>'+(jobProgress(j)||'<div class="mut sm">'+f2(j.spent_hours)+' h spent</div>')+
     (j.quoted_parts?'<div class="mut sm" style="margin-top:6px">Quoted parts '+money(j.quoted_parts)+'</div>':'')+
     (mgr()&&j.customer_id?'<div class="mut sm" style="margin-top:6px">Labor billing: '+(j.labor_mode==='fixed'?'fixed price (the quoted labor)':'time and materials (actual hours × '+money(rate())+')')+'</div>':'')+'</div>'+billCard(j)+
@@ -576,13 +576,14 @@ function jobForm(id){
     '<label><input type="checkbox" id="jb" style="width:auto" '+(j.billable?'checked':'')+'> Billable to the customer</label>'+
     (mgr()?'<label>Labor billing</label><select id="jlm"><option value="fixed"'+(j.labor_mode==='fixed'?' selected':'')+'>Fixed price: bill the quoted labor</option><option value="tm"'+(j.labor_mode!=='fixed'?' selected':'')+'>Time and materials: bill actual hours</option></select>':'')+
     (id?'<label>Status</label><select id="js"><option value="open"'+(j.status==='open'?' selected':'')+'>Open</option><option value="done"'+(j.status==='done'?' selected':'')+'>Done</option><option value="archived"'+(j.status==='archived'?' selected':'')+'>Archived</option></select>':'')+
-    '<label>Notes</label><textarea id="jno">'+esc(j.notes||'')+'</textarea>'+
+    '<label>Notes'+(mgr()?' (everyone sees these)':'')+'</label><textarea id="jno">'+esc(j.notes||'')+'</textarea>'+
+    (mgr()?'<label>Owner notes (owners only: prices, billing, terms)</label><textarea id="jon">'+esc(j.owner_notes||'')+'</textarea>':'')+
     '<button class="b" onclick="saveJob(\''+(id||'')+'\')">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
 function quickCust(){var n=prompt('New customer name');if(!n)return;rpc('save_customer',{p_token:TOKEN,c:{name:n}}).then(function(r){return refresh(true).then(function(){var sel=$('jc');if(sel){var o=document.createElement('option');o.value=r.id;o.textContent=n;o.selected=true;sel.appendChild(o);}});}).catch(function(e){alert(e.message);});}
 function saveJob(id){
   var fw=$('jk').value==='Farm work',en=$('jfe').value.trim();if(fw&&!en)return alert('Which farm entity is this for?');
-  var j={id:id,customer_id:fw?'':$('jc').value,name:fw?en+' · '+$('jn').value.trim():$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};if($('jlm')&&(id||$('jlm').value==='fixed'))j.labor_mode=$('jlm').value;
+  var j={id:id,customer_id:fw?'':$('jc').value,name:fw?en+' · '+$('jn').value.trim():$('jn').value,kind:$('jk').value,quoted_hours:$('jq2').value,billable:$('jb').checked,notes:$('jno').value,status:id?$('js').value:'open'};if($('jlm')&&(id||$('jlm').value==='fixed'))j.labor_mode=$('jlm').value;if($('jon'))j.owner_notes=$('jon').value;
   act('save_job',{p_token:TOKEN,j:j},function(r){closeSheet();if(SUB.fromClock&&!id){SUB.pickJob=r.id;SUB.fromClock=false;go('clock');}toast('Saved');});
 }
 function custView(id){
