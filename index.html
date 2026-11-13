@@ -271,6 +271,7 @@ function vClock(){
       '<label>What are you doing</label><textarea id="rn" onblur="saveNote()">'+esc(r.note)+'</textarea>'+
       '<label>Switch to</label><select id="sp">'+jobOptions(r.job_id)+'</select>'+
       '<button class="b alt" onclick="doSwitch()">Switch job</button>'+
+      '<button class="b alt" onclick="saveNote();splitForm(\''+r.id+'\')">Break down what I\'ve done so far</button>'+
       '<button class="b red" onclick="doOut()">Clock out</button></div>';
   }else{
     h+='<div class="card"><h2>Off the clock</h2><label>Job</label><select id="ip">'+jobOptions(SUB.pickJob||'')+'</select>'+
@@ -286,7 +287,7 @@ function vClock(){
   var myTasks=S.tasks.filter(function(t){return t.status!=='done'&&(t.owner_id===S.me.id);}).slice(0,5);
   if(myTasks.length)h+='<div class="card"><h2>My tasks <button class="s" onclick="go(\'tasks\')">All</button></h2><div class="list">'+myTasks.map(taskRow).join('')+'</div></div>';
   h+='<div class="card"><h2>Time off & fixes</h2><div class="grid2"><button class="b alt" style="margin:0" onclick="leaveForm()">Time off / sick</button><button class="b alt" style="margin:0" onclick="fixForm(\'\')">Add missed time</button></div>'+
-     '<div class="mut sm" style="margin-top:8px">To fix an entry, tap it. Fixes are approved before they count.</div>'+myRequests()+'</div>';
+     '<div class="mut sm" style="margin-top:8px">Tap an entry to describe it or break it into parts. Time fixes are approved before they count.</div>'+myRequests()+'</div>';
   return h;
 }
 function entryRow(e){
@@ -297,7 +298,45 @@ function entryRow(e){
 function entryTap(id){
   var e=S.entries.filter(function(x){return x.id===id;})[0];if(!e)return;
   if(mgr())return entryForm(id);
-  if(e.end_at)fixForm(id);
+  if(e.person_id!==S.me.id)return;
+  if(!e.end_at)return splitForm(id);
+  sheet('<h3>'+esc(jobById(e.job_id))+'</h3><div class="mut">'+dlbl(ymd(e.start_at))+' '+tm(e.start_at)+' – '+tm(e.end_at)+' · '+hm(hrs(e.start_at,e.end_at))+'</div>'+(e.note?'<p style="white-space:pre-wrap">'+esc(e.note)+'</p>':'')+
+    '<button class="b" onclick="splitForm(\''+id+'\')">Describe or break down this time</button><div class="mut sm">Say what you did, or split it into parts by job. Your clock in and out times stay the same.</div>'+
+    '<button class="b alt" onclick="fixForm(\''+id+'\')">Ask for a time fix</button><div class="mut sm">For a wrong clock in or out time. An owner approves it.</div>'+
+    '<button class="b ghost" onclick="closeSheet()">Close</button>');
+}
+/* ---- break one stretch of time into parts ---- */
+var SP=null;
+function spTotal(){var e=S.entries.filter(function(x){return x.id===SP.id;})[0];return e?Math.floor(hrs(e.start_at,e.end_at)*60):0;}
+function spUsed(){return SP.rows.reduce(function(a,r){return a+(+r.h||0)*60+(+r.m||0);},0);}
+function spLeft(){var l=spTotal()-spUsed(),el=$('sprest');if(el){el.textContent=l>=0?hm(l/60):'over by '+hm(-l/60);el.style.color=l<0?'var(--red)':'';}return l;}
+function splitForm(id,after){
+  var e=S.entries.filter(function(x){return x.id===id;})[0];if(!e)return;
+  SP={id:id,rows:[],rest:{job:e.job_id,note:e.note||''},after:!!after};spDraw();
+}
+function spDraw(){
+  var e=S.entries.filter(function(x){return x.id===SP.id;})[0];if(!e)return closeSheet();
+  var run=!e.end_at;
+  sheet('<h3>'+(SP.after?'What did you do?':'Break down this time')+'</h3><div class="mut">'+dlbl(ymd(e.start_at))+' '+tm(e.start_at)+' – '+(run?'now':tm(e.end_at))+' · '+hm(hrs(e.start_at,e.end_at))+(run?' so far':'')+'</div>'+
+    '<div class="mut sm" style="margin-top:4px">Add a part for each thing you did: pick the job, how long it took, and what it was. Whatever is left stays on the last line. Clock in and out times do not change.</div>'+
+    SP.rows.map(function(r,i){return '<div class="card" style="margin-top:10px"><h2>Part '+(i+1)+'<button class="s" onclick="spSync();SP.rows.splice('+i+',1);spDraw()">Remove</button></h2>'+
+      '<label>Job</label><select id="spj'+i+'">'+jobOptions(r.job)+'</select>'+
+      '<div class="grid2"><div><label>Hours</label><input id="sph'+i+'" type="number" inputmode="decimal" min="0" step="0.25" value="'+esc(r.h)+'" oninput="spSync();spLeft()"></div><div><label>Minutes</label><input id="spm'+i+'" type="number" inputmode="numeric" min="0" step="5" value="'+esc(r.m)+'" oninput="spSync();spLeft()"></div></div>'+
+      '<label>What you did</label><textarea id="spn'+i+'">'+esc(r.note)+'</textarea></div>';}).join('')+
+    '<button class="b alt" onclick="spSync();SP.rows.push({job:SP.rest.job,h:\'\',m:\'\',note:\'\'});spDraw()">+ Add a part</button>'+
+    '<div class="card" style="margin-top:10px"><h2>'+(SP.rows.length?(run?'Still running':'Rest of the time'):'This time')+'<span id="sprest"></span></h2>'+
+      '<label>Job</label><select id="sprj">'+jobOptions(SP.rest.job)+'</select><label>What you did</label><textarea id="sprn">'+esc(SP.rest.note)+'</textarea></div>'+
+    '<button class="b" onclick="spSave()">Save</button><button class="b ghost" onclick="closeSheet()">'+(SP.after?'Skip':'Cancel')+'</button>');
+  spLeft();
+}
+function spSync(){SP.rows.forEach(function(r,i){if(!$('spj'+i))return;r.job=$('spj'+i).value;r.h=$('sph'+i).value;r.m=$('spm'+i).value;r.note=$('spn'+i).value;});if($('sprj')){SP.rest.job=$('sprj').value;SP.rest.note=$('sprn').value;}}
+function spSave(){
+  spSync();var e=S.entries.filter(function(x){return x.id===SP.id;})[0];if(!e)return;
+  var parts=[],bad='';SP.rows.forEach(function(r,i){var mins=Math.round((+r.h||0)*60+(+r.m||0));if(!r.job)bad='Pick a job for part '+(i+1);else if(mins<1)bad='Enter the time for part '+(i+1);parts.push({job_id:r.job,minutes:mins,note:r.note});});
+  if(bad)return alert(bad);
+  var left=spLeft();if(left<0)return alert('The parts add up to more than the time worked.');
+  if(left>=1||!e.end_at||!parts.length){if(!SP.rest.job)return alert('Pick a job for the rest of the time');parts.push({job_id:SP.rest.job,note:SP.rest.note,rest:true});}
+  rpc('split_entry',{p_token:TOKEN,p_id:SP.id,p_parts:parts}).then(function(){return refresh(true);}).then(function(){closeSheet();toast('Saved');}).catch(function(e){alert(e.message);});
 }
 function myRequests(){
   var rs=S.requests.filter(function(r){return r.person_id===S.me.id;}).slice(0,12);
@@ -313,7 +352,8 @@ function doIn(){var j=$('ip').value;if(!j)return alert('Pick a job');var n=$('in
 function doSwitch(){var j=$('sp').value;if(!j)return alert('Pick a job');busy(true);
   where().then(function(l){return act('switch_job',{p_token:TOKEN,p_job:j,p_note:'',p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){toast('Switched');});});}
 function doOut(){if(!confirm('Clock out now?'))return;var n=$('rn').value;$('rn').value='';busy(true);
-  where().then(function(l){return act('clock_out',{p_token:TOKEN,p_note:n,p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){toast('Clocked out');});});}
+  var rid=(running()||{}).id;
+  where().then(function(l){return act('clock_out',{p_token:TOKEN,p_note:n,p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){toast('Clocked out');var e=S.entries.filter(function(x){return x.id===rid;})[0];if(e&&e.end_at&&hrs(e.start_at,e.end_at)*60>=2)splitForm(rid,true);});});}
 function saveNote(){var r=running();var v=$('rn').value;if(r&&v!==(r.note||'')){r.note=v;rpc('set_running_note',{p_token:TOKEN,p_note:v},true).catch(function(){});}}
 function startOn(jobId){SUB.pickJob=jobId;var r=running();
   if(r){if(!confirm('Switch your clock to '+jobById(jobId)+'?'))return;busy(true);
@@ -792,6 +832,7 @@ function entryForm(id){
     '<label>Date</label><input type="date" id="ed" value="'+d+'"><div class="grid2"><div><label>Start</label><input type="time" id="es" value="'+(e.start_at?hhmm(e.start_at):'08:00')+'"></div><div><label>End (blank = running)</label><input type="time" id="ee" value="'+(e.end_at?hhmm(e.end_at):(id?'':'17:00'))+'"></div></div>'+
     '<label>Job</label><select id="ej">'+jobOptions(e.job_id,true)+'</select><label><input type="checkbox" id="eb" style="width:auto" '+(e.billable?'checked':'')+'> Billable</label><label>Note</label><textarea id="en">'+esc(e.note||'')+'</textarea>'+
     (id&&!e.end_at?'<button class="b red" onclick="$(\'ee\').value=\''+hhmm(new Date().toISOString())+'\';saveEntry(\''+id+'\')">Clock out now</button>':'')+
+    (id?'<button class="b alt" onclick="splitForm(\''+id+'\')">Break this time into parts</button>':'')+
     '<button class="b" onclick="saveEntry(\''+(id||'')+'\')">Save</button>'+(id?'<button class="b ghost" style="color:var(--red)" onclick="if(confirm(\'Delete this entry?\'))act(\'delete_entry\',{p_token:TOKEN,p_id:\''+id+'\'},closeSheet)">Delete</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
 function saveEntry(id){var d=$('ed').value,s=localIso(d,$('es').value),en=$('ee').value?localIso(d,$('ee').value):'';if(en&&en<=s)en=new Date(new Date(en).getTime()+864e5).toISOString();
