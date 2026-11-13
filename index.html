@@ -71,6 +71,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 .search{position:relative}.search input{padding-left:34px}.search svg{position:absolute;left:10px;top:15px;width:18px;height:18px;color:var(--mut)}
 .right{text-align:right}.hide{display:none}
 .sxw{position:sticky;top:0;height:0;z-index:6;text-align:right}.sx{width:38px;height:38px;border-radius:19px;border:1px solid #cfd6cc;background:#fff;color:#333;font-size:17px;line-height:1;padding:0;margin:-6px -6px 0 0;box-shadow:0 1px 4px rgba(0,0,0,.15)}#sheetIn>h3{padding-right:44px}
+.card.col>h2{cursor:pointer;margin-bottom:0;user-select:none;-webkit-user-select:none}.card.col.open>h2{margin-bottom:10px}.card.col:not(.open)>*:not(h2){display:none!important}.chv{display:inline-block;width:14px;font-style:normal;color:var(--mut,#6b7a6b)}
 </style>
 </head>
 <body>
@@ -239,7 +240,7 @@ function render(){
     return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+ICON[t[0]]+t[1]+dot+'</button>';}).join('');
   var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
   var keep={};['mb','in','rn'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
-  $('app').innerHTML=(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();
+  $('app').innerHTML=(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',S.me.viewing?2:1);
   Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
   if(foc&&keep[foc]!==undefined&&$(foc)){$(foc).focus();}
   if(TAB==='msgs'&&THREAD){var b=$('msgBox');if(b)b.scrollIntoView(false);}
@@ -247,6 +248,19 @@ function render(){
 }
 function go(t){TAB=t;if(t!=='msgs')THREAD=null;window.scrollTo(0,0);render();}
 function sheet(h){$('sheetIn').innerHTML='<div class="sxw"><button class="sx" onclick="closeSheet()" aria-label="Close">✕</button></div>'+h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
+var OPEN={};
+function collapse(root,key,skip){
+  var cs=root.querySelectorAll('.card');
+  for(var i=skip||0;i<cs.length;i++){(function(c){
+    var h=c.querySelector('h2');if(!h||h.parentNode!==c)return;
+    var n=h.childNodes[0];if(!n||n.nodeType!==3)return;
+    var t=n.textContent.trim(),k=key+'|'+t;if(!t||t==='Quoted vs actual')return;
+    var w=document.createElement('span');w.innerHTML='<i class="chv"></i>';w.appendChild(document.createTextNode(n.textContent));h.replaceChild(w,n);
+    var set=function(){c.classList.toggle('open',!!OPEN[k]);w.firstChild.textContent=OPEN[k]?'▾':'▸';};
+    c.classList.add('col');set();
+    h.onclick=function(ev){if(ev.target.closest('button'))return;OPEN[k]=!OPEN[k];set();};
+  })(cs[i]);}
+}
 function closeSheet(){$('sheet').style.display='none';}
 $('sheet').addEventListener('click',function(e){if(e.target.id==='sheet')closeSheet();});
 var tickT=null;
@@ -361,11 +375,12 @@ function startOn(jobId){SUB.pickJob=jobId;var r=running();
   else{closeSheet();go('clock');}}
 function logForm(){
   var who=[S.me].concat(S.people.filter(function(p){return p.active&&p.role==='helper';}));
-  sheet('<h3>Log hours</h3><label>Who</label><select id="lw">'+who.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+(p.id===S.me.id?' (me)':'')+'</option>';}).join('')+'</select><label>Job</label><select id="lj">'+jobOptions('')+'</select>'+
+  sheet('<h3>Log hours</h3><label>Who</label><select id="lw" onchange="logWho()">'+who.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+(p.id===S.me.id?' (me)':'')+'</option>';}).join('')+'</select><label>Job</label><select id="lj">'+jobOptions('')+'</select>'+
     '<div class="grid2"><div><label>Date</label><input type="date" id="ld" value="'+today()+'"></div><div><label>Hours</label><input type="number" id="lhh" step="0.25" min="0.25" max="24" value="1"></div></div>'+
-    '<label>What was done</label><textarea id="lno"></textarea><label><input type="checkbox" id="lb" style="width:auto" checked> Billable</label>'+
+    '<label>What was done</label><textarea id="lno"></textarea><label><input type="checkbox" id="lb" style="width:auto" checked> Billable</label><div id="lbn" class="mut sm" style="display:none">Helper hours are for tracking how long a job takes. Tick Billable only if this time should be billed.</div>'+
     '<button class="b" onclick="saveLog()">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
+function logWho(){var p=person($('lw').value),h=p&&p.role==='helper';$('lb').checked=!h;var n=$('lbn');if(n)n.style.display=h?'block':'none';}
 function saveLog(){var j=$('lj').value,h=+$('lhh').value;if(!j)return alert('Pick a job');if(!(h>0))return alert('Enter hours');
   var st=new Date($('ld').value+'T08:00:00'),en=new Date(st.getTime()+h*36e5);
   act('save_entry',{p_token:TOKEN,e:{id:'',person_id:$('lw').value,job_id:j,start_at:st.toISOString(),end_at:en.toISOString(),note:$('lno').value,billable:$('lb').checked}},function(){closeSheet();toast('Logged '+f2(h)+' h');});}
@@ -385,6 +400,7 @@ function fixForm(id){
 function sendFix(id){var d=$('fd').value,s=localIso(d,$('fs').value),e=localIso(d,$('fe').value);if(e<=s)e=new Date(new Date(e).getTime()+864e5).toISOString();
   act('request_fix',{p_token:TOKEN,p_entry:id||null,p_start:s,p_end:e,p_job:$('fj').value||null,p_note:$('fn').value},function(){closeSheet();toast('Sent for approval');});}
 
+var _jobView=jobView;jobView=function(id){_jobView(id);collapse($('sheetIn'),'job'+id);};
 /* ===== TASKS ===== */
 function taskRow(t){
   var steps=t.steps||[],dn=steps.filter(function(s){return s.done;}).length,j=job(t.job_id),o=t.owner_id?person(t.owner_id).name:'Anyone';
