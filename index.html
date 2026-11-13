@@ -148,7 +148,7 @@ function billables(j){
   return out;
 }
 function billSum(j){var b=mgr()?billables(j):[],ready=0,billed=0,hold=0;b.forEach(function(x){if(x.ref)billed+=x.amt;else if(x.ok)ready+=x.amt;else hold+=x.amt;});return {items:b,ready:ready,billed:billed,hold:hold};}
-function setView(m){rpc('set_view',{p_token:TOKEN,p_mode:m}).then(function(){closeSheet();SUB={};return refresh();}).then(function(){toast(m?'Showing the employee view':'Back to the owner view');}).catch(function(e){alert(e.message);});}
+function setView(m){rpc('set_view',{p_token:TOKEN,p_mode:m}).then(function(){closeSheet(true);SUB={};return refresh();}).then(function(){toast(m?'Showing the employee view':'Back to the owner view');}).catch(function(e){alert(e.message);});}
 function person(id){return (S.people||[]).filter(function(p){return p.id===id;})[0]||{name:'?'};}
 function job(id){return (S.jobs||[]).filter(function(j){return j.id===id;})[0]||null;}
 function cust(id){return (S.customers||[]).filter(function(c){return c.id===id;})[0]||null;}
@@ -247,7 +247,9 @@ function render(){
   tickClock();
 }
 function go(t){TAB=t;if(t!=='msgs')THREAD=null;window.scrollTo(0,0);render();}
-function sheet(h){$('sheetIn').innerHTML='<div class="sxw"><button class="sx" onclick="closeSheet()" aria-label="Close">✕</button></div>'+h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
+var JOBCTX=null,SHEETKIND='',JOBSCROLL=0;
+function sheetUp(){return $('sheet').style.display==='flex';}
+function sheet(h){if(SHEETKIND==='job'&&sheetUp())JOBSCROLL=$('sheetIn').scrollTop;SHEETKIND='';$('sheetIn').innerHTML='<div class="sxw"><button class="sx" onclick="closeSheet()" aria-label="Close">✕</button></div>'+h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
 var OPEN={};
 function collapse(root,key,skip){
   var cs=root.querySelectorAll('.card');
@@ -261,7 +263,7 @@ function collapse(root,key,skip){
     h.onclick=function(ev){if(ev.target.closest('button'))return;OPEN[k]=!OPEN[k];set();};
   })(cs[i]);}
 }
-function closeSheet(){$('sheet').style.display='none';}
+function closeSheet(force){if(force!==true&&JOBCTX&&SHEETKIND!=='job'&&sheetUp()&&job(JOBCTX))return jobView(JOBCTX);JOBCTX=null;SHEETKIND='';JOBSCROLL=0;$('sheet').style.display='none';}
 $('sheet').addEventListener('click',function(e){if(e.target.id==='sheet')closeSheet();});
 var tickT=null;
 function tickClock(){clearInterval(tickT);var r=S&&running();if(!r)return;tickT=setInterval(function(){var c=$('clk');if(c)c.textContent=hm(hrs(r.start_at));},15000);}
@@ -400,7 +402,7 @@ function fixForm(id){
 function sendFix(id){var d=$('fd').value,s=localIso(d,$('fs').value),e=localIso(d,$('fe').value);if(e<=s)e=new Date(new Date(e).getTime()+864e5).toISOString();
   act('request_fix',{p_token:TOKEN,p_entry:id||null,p_start:s,p_end:e,p_job:$('fj').value||null,p_note:$('fn').value},function(){closeSheet();toast('Sent for approval');});}
 
-var _jobView=jobView;jobView=function(id){_jobView(id);collapse($('sheetIn'),'job'+id);};
+var _jobView=jobView;jobView=function(id){var same=JOBCTX===id,sc=same?(SHEETKIND==='job'&&sheetUp()?$('sheetIn').scrollTop:JOBSCROLL):0;_jobView(id);if(!sheetUp())return;JOBCTX=id;SHEETKIND='job';JOBSCROLL=sc;collapse($('sheetIn'),'job'+id);$('sheetIn').scrollTop=sc;};
 /* ===== TASKS ===== */
 function taskRow(t){
   var steps=t.steps||[],dn=steps.filter(function(s){return s.done;}).length,j=job(t.job_id),o=t.owner_id?person(t.owner_id).name:'Anyone';
