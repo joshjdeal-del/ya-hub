@@ -148,6 +148,7 @@ function billables(j){
   return out;
 }
 function billSum(j){var b=mgr()?billables(j):[],ready=0,billed=0,hold=0;b.forEach(function(x){if(x.ref)billed+=x.amt;else if(x.ok)ready+=x.amt;else hold+=x.amt;});return {items:b,ready:ready,billed:billed,hold:hold};}
+function unlockLogin(){if(!confirm('Unlock sign-in for everyone?'))return;rpc('unlock_login',{p_token:TOKEN}).then(function(){return refresh(true);}).then(function(){toast('Sign-in unlocked');}).catch(function(e){alert(e.message);});}
 function setView(m){rpc('set_view',{p_token:TOKEN,p_mode:m}).then(function(){closeSheet(true);SUB={};return refresh();}).then(function(){toast(m?'Showing the employee view':'Back to the owner view');}).catch(function(e){alert(e.message);});}
 function person(id){return (S.people||[]).filter(function(p){return p.id===id;})[0]||{name:'?'};}
 function job(id){return (S.jobs||[]).filter(function(j){return j.id===id;})[0]||null;}
@@ -206,6 +207,9 @@ function range(){
   return {from:from,to:addDays(p.end,0)>today()?addDays(p.end,0):today()};
 }
 function refresh(quiet){var r=range();return rpc('state',{p_token:TOKEN,p_from:r.from,p_to:r.to},quiet).then(function(st){S=st;render();});}
+(function(){var m=/[?&]unlock=([0-9a-f]{30,})/.exec(location.search);if(!m)return;
+  try{history.replaceState(null,'',location.pathname);}catch(e){}
+  rpc('unlock_with_token',{p_tok:m[1]},true).then(function(r){alert(r.ok?'Sign-in is unlocked. Everyone can sign in again.':(r.why||'That unlock link did not work.'));if(TOKEN&&S)refresh(true);}).catch(function(e){alert(e.message);});})();
 function boot(){
   refresh().then(function(){
     clearInterval(boot.t);
@@ -240,7 +244,8 @@ function render(){
     return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+ICON[t[0]]+t[1]+dot+'</button>';}).join('');
   var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
   var keep={};['mb','in','rn'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
-  $('app').innerHTML=(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',S.me.viewing?2:1);
+  var lockCard=S.login_locked?'<div class="card" style="border-color:var(--red);background:#fdecec"><b style="color:var(--red)">Sign-in is locked</b><div class="sm" style="margin:4px 0 8px">3 wrong codes were entered ('+dlbl(ymd(S.login_locked))+' '+tm(S.login_locked)+'). Nobody can sign in until an owner unlocks it. People who are already signed in are not affected.</div><button class="b" style="margin:0" onclick="unlockLogin()">Unlock sign-in</button></div>':'';
+  $('app').innerHTML=lockCard+(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',(S.me.viewing?2:1)+(S.login_locked?1:0));
   Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
   if(foc&&keep[foc]!==undefined&&$(foc)){$(foc).focus();}
   if(TAB==='msgs'&&THREAD){var b=$('msgBox');if(b)b.scrollIntoView(false);}
