@@ -187,7 +187,7 @@ var typed='';
 function padView(msg){
   $('who').innerHTML='';$('nav').className='hide';
   var k=[1,2,3,4,5,6,7,8,9,'',0,'⌫'];
-  $('app').innerHTML='<div class="card" style="text-align:center;margin-top:20px"><h3>Yield Advantage</h3><div class="mut">Enter your 4-digit code</div>'+
+  $('app').innerHTML='<div class="card" style="text-align:center;margin-top:20px"><h3>Yield Advantage</h3><div class="mut sm" style="margin:-2px 0 6px">Winter to spring hours: 8 AM to 5 PM</div><div class="mut">Enter your 4-digit code</div>'+
     '<div class="dots">'+[0,1,2,3].map(function(i){return '<i class="'+(i<typed.length?'f':'')+'"></i>';}).join('')+'</div>'+
     '<div class="err">'+esc(msg||'')+'</div><div class="pad">'+
     k.map(function(x){return x===''?'<span></span>':'<button onclick="key(\''+x+'\')">'+x+'</button>';}).join('')+'</div></div>';
@@ -284,7 +284,7 @@ function jobOptions(sel,includeAll){
 
 /* ===== CLOCK ===== */
 function vClock(){
-  var r=running(),h='';
+  var r=running(),h='<div class="mut sm" style="text-align:center;margin:0 0 10px">Winter to spring hours: 8 AM to 5 PM</div>';
   if(r){
     var j=job(r.job_id);
     h+='<div class="card"><h2>On the clock'+(j&&j.billable?'<span class="pill">billable</span>':'')+'</h2><div class="big" id="clk">'+hm(hrs(r.start_at))+'</div>'+
