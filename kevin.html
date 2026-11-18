@@ -89,7 +89,11 @@ function hrs(e){return ((e.end_at?new Date(e.end_at):new Date())-new Date(e.star
 function f2(n){return (Math.round(n*100)/100).toFixed(2);}
 function hm(h){var m=Math.round(h*60);return Math.floor(m/60)+'h '+pad2(m%60)+'m';}
 function monday(s){var d=new Date(s+'T12:00:00');d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d);}
-function owner(){return S&&S.me.owner;}
+var PREVIEW=false;
+function realOwner(){return S&&S.me.owner;}
+function owner(){return S&&S.me.owner&&!PREVIEW;}
+function pv(){if(PREVIEW){alert('This is a preview of '+S.who+'\'s view. Nothing is saved from here. Tap "Back to my view" to make changes.');return true;}return false;}
+function setPreview(on){PREVIEW=on;SEL={};closeSheet();render();window.scrollTo(0,0);}
 function running(){return (S.entries||[]).filter(function(e){return !e.end_at;})[0]||null;}
 function done(){return (S.entries||[]).filter(function(e){return e.end_at&&e.status!=='pending';});}
 function reqs(){return (S.entries||[]).filter(function(e){return e.end_at&&(e.status==='pending'||e.proposed);});}
@@ -133,7 +137,7 @@ function key(k){
   if(CODE.length===4){var c=CODE;CODE='';
     rpc('crew_login',{p_code:c}).then(function(r){if(!r.ok){padView(r.why);return;}TOKEN=r.token;store('kvToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
 }
-function signOut(silent){if(TOKEN&&!silent)rpc('crew_logout',{p_token:TOKEN}).catch(function(){});TOKEN='';store('kvToken',null);clearInterval(TICK);closeSheet();padView();}
+function signOut(silent){PREVIEW=false;if(TOKEN&&!silent)rpc('crew_logout',{p_token:TOKEN}).catch(function(){});TOKEN='';store('kvToken',null);clearInterval(TICK);closeSheet();padView();}
 function refresh(){return rpc('crew_state',{p_token:TOKEN}).then(function(st){S=st;render();});}
 function boot(){
   refresh().then(function(){clearInterval(boot.t);boot.t=setInterval(function(){if(!document.hidden&&TOKEN&&$('sheet').style.display!=='flex'){var ae=document.activeElement;if(ae&&/TEXTAREA|INPUT|SELECT/.test(ae.tagName))return;refresh().catch(function(){});}},30000);})
@@ -161,9 +165,9 @@ function pick(id){var v=$(id).value;if(v.indexOf('dealag:')===0)return {kind:'de
 /* ---- render ---- */
 function render(){
   $('ttl').textContent=owner()?S.who+"'s Hours":'My Hours';
-  $('who').innerHTML='<button onclick="signOut()">Sign out</button>';
+  $('who').innerHTML=(realOwner()&&!PREVIEW?'<button onclick="setPreview(true)">'+esc(S.who)+'\'s view</button> ':'')+'<button onclick="signOut()">Sign out</button>';
   var keep={},rid=(running()||{}).id||'';if($('cn'))keep.cn=$('cn').value;if($('rn')&&render.rid===rid)keep.rn=$('rn').value;render.rid=rid;
-  $('app').innerHTML=owner()?vOwner():vCrew();
+  $('app').innerHTML=(PREVIEW?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>'+esc(S.who)+'\'s view</b><div class="sm">This is what '+esc(S.who)+' sees when he signs in. It is a preview, so nothing can be changed from here.</div><button class="b alt" style="margin-top:8px" onclick="setPreview(false)">Back to my view</button></div>':'')+(owner()?vOwner():vCrew());
   ['cn','rn'].forEach(function(i){if($(i)&&keep[i]!=null&&document.activeElement!==$(i))$(i).value=keep[i];});
   bar();clearInterval(TICK);
   if(running())TICK=setInterval(function(){var r=running(),el=$('el');if(r&&el)el.textContent=hm(hrs(r));},20000);
@@ -207,12 +211,12 @@ function vCrew(){
   h+=stubCard();
   return h;
 }
-function clockIn(){var p=pick('cw'),n=$('cn').value;store('kvLast',p.raw);
+function clockIn(){if(pv())return;var p=pick('cw'),n=$('cn').value;store('kvLast',p.raw);
   where().then(function(l){return act('crew_clock_in',{p_token:TOKEN,p_kind:p.send,p_job:p.job,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked in');});});}
-function saveNote(){var r=running();if(!r||!$('rn'))return;var v=$('rn').value;if(v===(r.note||''))return;r.note=v;rpc('crew_note',{p_token:TOKEN,p_note:v}).catch(function(){});}
-function clockOut(){var n=$('rn')?$('rn').value:'';if(!confirm('Clock out now?'))return;
+function saveNote(){var r=running();if(PREVIEW||!r||!$('rn'))return;var v=$('rn').value;if(v===(r.note||''))return;r.note=v;rpc('crew_note',{p_token:TOKEN,p_note:v}).catch(function(){});}
+function clockOut(){if(pv())return;var n=$('rn')?$('rn').value:'';if(!confirm('Clock out now?'))return;
   where().then(function(l){return act('crew_clock_out',{p_token:TOKEN,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked out');});});}
-function switchForm(){var r=running();if(!r)return;
+function switchForm(){if(pv())return;var r=running();if(!r)return;
   sheet('<h3>Switch</h3><div class="mut sm">This ends "'+esc(lbl(r))+'" now and starts the next thing. You stay on the clock.</div>'+
     '<label>Notes for what you just finished</label><textarea id="sdn">'+esc($('rn')?$('rn').value:(r.note||''))+'</textarea>'+
     '<label>Now working on</label><select id="sw">'+workOpts('farm',null)+'</select><label>Notes (optional)</label><textarea id="sn"></textarea>'+
@@ -237,6 +241,7 @@ function entForm(id){
     (e&&(owner()||!e.paid_at)?'<button class="b ghost" style="color:var(--red)" onclick="delEnt(\''+id+'\')">Delete this entry</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
 function saveEnt(id){
+  if(pv())return;
   var d=$('ed').value,a=$('ea').value,b=$('eb').value;if(!d||!a||!b)return alert('Fill in the day and both times');
   var st=new Date(d+'T'+a+':00'),en=new Date(d+'T'+b+':00');if(en<=st)en=new Date(en.getTime()+864e5);
   var p=pick('ew'),old=id?S.entries.filter(function(x){return x.id===id;})[0]:null;
@@ -244,7 +249,7 @@ function saveEnt(id){
     .then(function(r){saveEnt.req=r&&r.requested;if($('er')&&old&&old.kind===p.kind&&(old.job_id||null)===(p.job||null)&&$('er').checked!==!!old.reimburse)return rpc('crew_set_reimburse',{p_token:TOKEN,p_id:id,p_on:$('er').checked});})
     .then(function(){return refresh();}).then(function(){closeSheet();toast('Saved');}).catch(function(e){alert(e.message);});
 }
-function delEnt(id){if(!confirm('Delete this entry?'))return;act('crew_delete_entry',{p_token:TOKEN,p_id:id},function(){closeSheet();toast('Deleted');});}
+function delEnt(id){if(pv())return;if(!confirm('Delete this entry?'))return;act('crew_delete_entry',{p_token:TOKEN,p_id:id},function(){closeSheet();toast('Deleted');});}
 
 /* ---- paystubs ---- */
 function stubCard(){
