@@ -66,6 +66,7 @@ button{font:inherit;cursor:pointer}
 <div id="sheet" onclick="if(event.target===this)closeSheet()"><div id="sheetIn"></div></div>
 <div id="toast"></div>
 <script>
+var VERSION = 8;
 var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
 var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
 var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null, LOGN = 10;
@@ -294,7 +295,7 @@ function place(lat,lng){
 function vOwner(){
   var r=running(),all=done(),h='';
   h+='<div class="card"><h2>Right now</h2>'+(r?'<div><b style="color:var(--g)">On the clock</b> since '+tm(r.start_at)+' · '+hm(hrs(r))+'</div><div>'+esc(lbl(r))+'</div>'+(r.note?'<div class="mut sm" style="white-space:pre-wrap">'+esc(r.note)+'</div>':'')+(r.in_lat?'<div class="mut sm">Clocked in '+place(r.in_lat,r.in_lng)+'</div>':''):'<div class="mut">Not clocked in'+(all.length?' · last out '+dlbl(ymd(all[0].end_at))+' '+tm(all[0].end_at):'')+'</div>')+'</div>';
-  h=reqCard()+h+totalsCard();
+  h='<button class="b alt" style="margin:0 0 12px" onclick="setPreview(true)">See what '+esc(S.who)+' sees</button>'+reqCard()+h+totalsCard();
   h+=trackCard();
   var owe=all.filter(function(e){return e.reimburse&&!e.reimbursed_at;});
   var list=shown();
@@ -305,6 +306,12 @@ function vOwner(){
   h+='<div class="card"><h2>Changes '+esc(S.who)+' made <span>'+lg.length+'</span></h2>'+(lg.length?lg.slice(0,LOGN).map(function(l){var has=l.what!=='deleted'&&S.entries.some(function(x){return x.id===l.entry_id;});
       return '<div class="row'+(has?' tap" onclick="entForm(\''+l.entry_id+'\')':'')+'"><div class="f"><div><b>'+({added:'Added time by hand',changed:'Changed an entry',deleted:'Deleted an entry'}[l.what]||esc(l.what))+'</b> <span class="mut sm">'+dlbl(ymd(l.at))+' '+tm(l.at)+'</span></div><div class="sm" style="white-space:pre-wrap">'+esc(l.detail||'')+'</div></div></div>';}).join('')+
       (lg.length>LOGN?'<button class="s" style="margin-top:8px" onclick="LOGN+=20;render()">Show more</button>':''):'<div class="mut sm">Nothing yet. Time he adds by hand, time changes and deletes show up here with the date and time he did it. Clocking in and out and notes are not listed.</div>')+'</div>';
+  var lgn=S.logins||[];
+  h+='<div class="card"><h2>'+esc(S.who)+'\'s sign-ins <span>only you see this</span></h2>'+
+    '<div class="sm">Last opened the hub: <b>'+(S.last_seen?dlbl(ymd(S.last_seen))+' '+tm(S.last_seen):'not yet')+'</b></div>'+
+    (lgn.length?'<div class="mut sm" style="margin:8px 0 2px">Signed in with his code:</div>'+lgn.slice(0,12).map(function(t){return '<div class="row" style="padding:6px 0"><div class="f">'+dlbl(ymd(t))+'</div><div class="n" style="font-weight:500">'+tm(t)+'</div></div>';}).join('')+(lgn.length>12?'<div class="mut sm">and '+(lgn.length-12)+' earlier</div>':'')
+      :'<div class="mut sm" style="margin-top:6px">He has not signed in yet.</div>')+
+    '<div class="mut sm" style="margin-top:8px">A phone stays signed in, so sign-ins are rare. "Last opened" is the better sign he is using it.</div></div>';
   h+='<div class="card"><h2>Setup</h2><label>'+esc(S.who)+'\'s sign-in code'+(S.has_code?' (one is set; enter a new one to change it)':' (none yet, so he cannot sign in)')+'</label><div style="display:flex;gap:8px"><input id="kc" inputmode="numeric" maxlength="4" placeholder="4 digits"><button class="s" onclick="setCode()">Save</button></div>'+
     '<button class="b alt" onclick="csv()">Download the ledger (CSV)</button></div>';
   return h;
@@ -338,6 +345,8 @@ function csv(){
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(function(r){return r.map(q).join(',');}).join('\n')],{type:'text/csv'}));a.download=S.who+' hours ledger '+ymd(new Date())+'.csv';document.body.appendChild(a);a.click();a.remove();
 }
 
+function checkVersion(){fetch('kevin.html?nocache='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){var m=/var VERSION = (\d+);/.exec(t);if(m&&+m[1]>VERSION&&$('sheet').style.display!=='flex')location.replace('kevin.html?v='+m[1]);}).catch(function(){});}
+checkVersion();document.addEventListener('visibilitychange',function(){if(!document.hidden)checkVersion();});
 TOKEN=load('kvToken');if(TOKEN)boot();else padView();
 </script>
 </body>
