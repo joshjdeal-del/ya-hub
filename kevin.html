@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2f5d2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kevin Hours">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Kevin's Hours</title>
+<style>
+:root{--g:#2f5d2a;--g2:#e7f1e4;--bg:#f2f6f0;--card:#fff;--line:#dfe6db;--ink:#1c241b;--mut:#66735f;--red:#b3261e;--amb:#9a6200;--amb2:#fdf3dc;--blue:#1d5fa8}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%}
+header{background:var(--g);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+header b{font-size:17px}
+header button{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:5px 10px;font-size:13px}
+main{max-width:640px;margin:0 auto;padding:12px 12px 90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
+h2{font-size:13px;margin:0 0 10px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h3{margin:0 0 6px;font-size:18px;padding-right:44px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:11px;border:1px solid #c9d3c4;border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:70px;resize:vertical}
+button{font:inherit;cursor:pointer}
+.b{display:block;width:100%;border:0;border-radius:12px;padding:14px;font-weight:600;font-size:16px;background:var(--g);color:#fff;margin-top:10px}
+.b.alt{background:var(--g2);color:var(--g)}
+.b.red{background:var(--red)}
+.b.ghost{background:transparent;color:var(--mut);font-weight:500}
+.s{border:1px solid #c9d3c4;background:#fff;border-radius:8px;padding:6px 10px;font-size:13px;color:var(--ink)}
+.mut{color:var(--mut)}.sm{font-size:13px}
+.big{font-size:40px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
+.grid3 b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .f{flex:1;min-width:0}
+.row .n{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.tap{cursor:pointer}
+.pill{display:inline-block;font-size:11px;border-radius:99px;padding:2px 8px;background:var(--g2);color:var(--g);font-weight:600;white-space:nowrap}
+.pill.amb{background:var(--amb2);color:var(--amb)}.pill.gray{background:#eceeea;color:var(--mut)}.pill.blue{background:#e3eefb;color:var(--blue)}
+.chk{width:26px;height:26px;border:2px solid #9fb09a;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;margin-top:2px}
+.chk.on{background:var(--g);border-color:var(--g)}
+.tabs{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap}
+.tabs button{border:1px solid #c9d3c4;background:#fff;border-radius:99px;padding:7px 13px;font-size:14px;color:var(--ink)}
+.tabs button.on{background:var(--g);border-color:var(--g);color:#fff}
+.wk{font-size:13px;color:var(--mut);font-weight:600;display:flex;justify-content:space-between;padding:12px 0 2px;border-top:2px solid var(--line)}
+.wk:first-child{border-top:0;padding-top:0}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+#sheetIn{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.sxw{position:sticky;top:0;height:0;z-index:6;text-align:right}.sx{width:38px;height:38px;border-radius:19px;border:1px solid #cfd6cc;background:#fff;color:#333;font-size:17px;padding:0;margin:-6px -6px 0 0;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1c241b;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;display:none;z-index:30}
+#bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:none;z-index:8}
+#bar .in{max-width:640px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.pad{max-width:300px;margin:8vh auto 0;text-align:center}
+.dots{font-size:34px;letter-spacing:10px;height:46px}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.keys button{padding:18px 0;font-size:22px;border-radius:14px;border:1px solid #c9d3c4;background:#fff;color:var(--ink)}
+</style>
+</head>
+<body>
+<header><b id="ttl">Kevin's Hours</b><span id="who"></span></header>
+<main id="app"></main>
+<div id="bar"><div class="in" id="barIn"></div></div>
+<div id="sheet" onclick="if(event.target===this)closeSheet()"><div id="sheetIn"></div></div>
+<div id="toast"></div>
+<script>
+var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
+var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
+var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null;
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function store(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}}
+function load(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
+function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none';},2200);}
+function rpc(fn,args){
+  return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+KEY},body:JSON.stringify(args||{})})
+    .then(function(r){return r.text().then(function(t){var d=null;try{d=t?JSON.parse(t):null;}catch(e){}
+      if(!r.ok){var m=(d&&(d.message||d.error))||('Error '+r.status);if(m==='signin'){signOut(true);throw new Error('Signed out');}throw new Error(m);}return d;});});
+}
+function act(fn,args,ok){return rpc(fn,args).then(function(){return refresh();}).then(function(){if(ok)ok();}).catch(function(e){if(e.message!=='Signed out')alert(e.message);});}
+function pad2(n){return (n<10?'0':'')+n;}
+function ymd(t){var d=new Date(t);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+function hhmm(t){var d=new Date(t);return pad2(d.getHours())+':'+pad2(d.getMinutes());}
+function tm(t){var d=new Date(t),h=d.getHours(),m=d.getMinutes();return ((h%12)||12)+':'+pad2(m)+(h<12?' AM':' PM');}
+function dlbl(s){var d=new Date(s+'T12:00:00');return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+(d.getMonth()+1)+'/'+d.getDate()+(d.getFullYear()!==new Date().getFullYear()?'/'+String(d.getFullYear()).slice(2):'');}
+function hrs(e){return ((e.end_at?new Date(e.end_at):new Date())-new Date(e.start_at))/36e5;}
+function f2(n){return (Math.round(n*100)/100).toFixed(2);}
+function hm(h){var m=Math.round(h*60);return Math.floor(m/60)+'h '+pad2(m%60)+'m';}
+function monday(s){var d=new Date(s+'T12:00:00');d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d);}
+function owner(){return S&&S.me.owner;}
+function running(){return (S.entries||[]).filter(function(e){return !e.end_at;})[0]||null;}
+function done(){return (S.entries||[]).filter(function(e){return e.end_at;});}
+function lbl(e){return e.kind==='ya'?('YA: '+(e.job||'job')):'Farm';}
+
+/* ---- sign in ---- */
+var CODE='';
+function padView(msg){
+  S=null;$('who').innerHTML='';$('bar').style.display='none';
+  $('app').innerHTML='<div class="pad"><h3 style="padding:0">Enter your code</h3><div class="dots" id="dots"></div><div class="mut sm" id="pmsg" style="min-height:38px;color:var(--red)">'+esc(msg||'')+'</div><div class="keys">'+
+    [1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(function(k){return k===''?'<span></span>':'<button onclick="key(\''+k+'\')">'+k+'</button>';}).join('')+'</div></div>';
+  CODE='';
+}
+function key(k){
+  if(k==='⌫')CODE=CODE.slice(0,-1);else if(CODE.length<4)CODE+=k;
+  $('dots').textContent='●'.repeat(CODE.length);
+  if(CODE.length===4){var c=CODE;CODE='';
+    rpc('crew_login',{p_code:c}).then(function(r){if(!r.ok){padView(r.why);return;}TOKEN=r.token;store('kvToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
+}
+function signOut(silent){if(TOKEN&&!silent)rpc('crew_logout',{p_token:TOKEN}).catch(function(){});TOKEN='';store('kvToken',null);clearInterval(TICK);closeSheet();padView();}
+function refresh(){return rpc('crew_state',{p_token:TOKEN}).then(function(st){S=st;render();});}
+function boot(){
+  refresh().then(function(){clearInterval(boot.t);boot.t=setInterval(function(){if(!document.hidden&&TOKEN&&$('sheet').style.display!=='flex'){var ae=document.activeElement;if(ae&&/TEXTAREA|INPUT|SELECT/.test(ae.tagName))return;refresh().catch(function(){});}},30000);})
+   .catch(function(e){if(e.message!=='Signed out')padView(e.message);});
+}
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&TOKEN&&S)refresh().catch(function(){});});
+
+/* ---- sheet ---- */
+function sheet(h){$('sheetIn').innerHTML='<div class="sxw"><button class="sx" onclick="closeSheet()" aria-label="Close">✕</button></div>'+h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
+function closeSheet(){$('sheet').style.display='none';}
+function where(){return new Promise(function(res){if(!navigator.geolocation)return res({});var d=false;var t=setTimeout(function(){if(!d){d=true;res({});}},7000);
+  navigator.geolocation.getCurrentPosition(function(p){if(d)return;d=true;clearTimeout(t);res({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy});},function(){if(d)return;d=true;clearTimeout(t);res({});},{enableHighAccuracy:true,timeout:6500,maximumAge:60000});});}
+function workOpts(kind,job){
+  var ya=S.jobs.filter(function(j){return j.cust;}),other=S.jobs.filter(function(j){return !j.cust;});
+  var o=function(j){return '<option value="'+j.id+'"'+(kind==='ya'&&job===j.id?' selected':'')+'>'+esc(j.label)+'</option>';};
+  return '<option value="farm"'+(kind!=='ya'?' selected':'')+'>Farm (Ideal Farms)</option>'+
+    (ya.length?'<optgroup label="Yield Advantage jobs">'+ya.map(o).join('')+'</optgroup>':'')+
+    (other.length?'<optgroup label="Yield Advantage shop / other">'+other.map(o).join('')+'</optgroup>':'');
+}
+function pick(id){var v=$(id).value;return v==='farm'?{kind:'farm',job:null}:{kind:'ya',job:v};}
+
+/* ---- render ---- */
+function render(){
+  $('ttl').textContent=owner()?S.who+"'s Hours":'My Hours';
+  $('who').innerHTML='<button onclick="signOut()">Sign out</button>';
+  var keep={},rid=(running()||{}).id||'';if($('cn'))keep.cn=$('cn').value;if($('rn')&&render.rid===rid)keep.rn=$('rn').value;render.rid=rid;
+  $('app').innerHTML=owner()?vOwner():vCrew();
+  ['cn','rn'].forEach(function(i){if($(i)&&keep[i]!=null&&document.activeElement!==$(i))$(i).value=keep[i];});
+  bar();clearInterval(TICK);
+  if(running())TICK=setInterval(function(){var r=running(),el=$('el');if(r&&el)el.textContent=hm(hrs(r));},20000);
+}
+function totals(list){var w=0,p=0;list.forEach(function(e){var h=hrs(e);w+=h;if(e.paid_at)p+=h;});return {w:w,p:p,u:w-p};}
+function totalsCard(){
+  var t=totals(done()),wk=monday(ymd(new Date())),tw=0;done().forEach(function(e){if(monday(ymd(e.start_at))===wk)tw+=hrs(e);});var r=running();if(r&&monday(ymd(r.start_at))===wk)tw+=hrs(r);
+  return '<div class="card"><h2>Hours <span>this week '+f2(tw)+'</span></h2><div class="grid3"><div><b>'+f2(t.w)+'</b><span class="mut sm">worked</span></div><div><b>'+f2(t.p)+'</b><span class="mut sm">paid</span></div><div><b style="color:'+(t.u>0.005?'var(--amb)':'inherit')+'">'+f2(t.u)+'</b><span class="mut sm">not paid yet</span></div></div></div>';
+}
+function entRow(e,sel){
+  var imp=e.source==='import';
+  return '<div class="row tap" onclick="'+(sel?'tog(\''+e.id+'\')':'entForm(\''+e.id+'\')')+'">'+(sel?'<div class="chk'+(SEL[e.id]?' on':'')+'">'+(SEL[e.id]?'✓':'')+'</div>':'')+
+    '<div class="f"><div>'+dlbl(ymd(e.start_at))+(imp?'':' <span class="mut sm">'+tm(e.start_at)+' – '+tm(e.end_at)+'</span>')+'</div>'+
+    '<div class="sm">'+(e.kind==='ya'?'<span class="pill blue">YA</span> '+esc(e.job||''):'<span class="pill gray">Farm</span>')+'</div>'+
+    (e.note?'<div class="mut sm" style="white-space:pre-wrap">'+esc(e.note)+'</div>':'')+
+    '<div style="margin-top:3px">'+(e.paid_at?'<span class="pill">paid '+dlbl(e.paid_at)+(e.paid_ref?' · '+esc(e.paid_ref):'')+'</span>':'<span class="pill amb">not paid</span>')+
+      (owner()&&e.reimburse?(e.reimbursed_at?' <span class="pill">YA paid back '+dlbl(e.reimbursed_at)+'</span>':' <span class="pill amb">YA owes me</span>'):'')+
+      (e.edited?' <span class="pill gray">changed by '+esc(S.who)+'</span>':'')+(owner()&&sel?' <button class="s" style="padding:2px 8px" onclick="event.stopPropagation();entForm(\''+e.id+'\')">Edit</button>':'')+'</div></div>'+
+    '<div class="n">'+f2(hrs(e))+'</div></div>';
+}
+function listHtml(list,sel){
+  if(!list.length)return '<div class="mut">Nothing here</div>';
+  var out='',cur='',sums={};list.forEach(function(e){var w=monday(ymd(e.start_at));sums[w]=(sums[w]||0)+hrs(e);});
+  list.forEach(function(e){var w=monday(ymd(e.start_at));if(w!==cur){cur=w;out+='<div class="wk"><span>Week of '+dlbl(w)+'</span><span>'+f2(sums[w])+' h</span></div>';}out+=entRow(e,sel);});
+  return out;
+}
+
+/* ---- Kevin ---- */
+function vCrew(){
+  var r=running(),h='';
+  if(r){
+    h+='<div class="card"><h2>On the clock <span>since '+tm(r.start_at)+'</span></h2><div class="big" id="el">'+hm(hrs(r))+'</div><div style="margin:4px 0 2px"><b>'+esc(lbl(r))+'</b></div>'+
+      '<label>What you are doing</label><textarea id="rn" onblur="saveNote()" placeholder="Notes for this stretch">'+esc(r.note||'')+'</textarea>'+
+      '<button class="b alt" onclick="switchForm()">Switch to something else</button><button class="b red" onclick="clockOut()">Clock out</button></div>';
+  }else{
+    h+='<div class="card"><h2>Clock in</h2><label>What are you working on?</label><select id="cw">'+workOpts(load('kvLast')==='farm'||!load('kvLast')?'farm':'ya',load('kvLast'))+'</select>'+
+      '<label>Notes (optional)</label><textarea id="cn" placeholder="What you are doing"></textarea><button class="b" onclick="clockIn()">Clock in</button></div>';
+  }
+  h+=totalsCard();
+  h+='<div class="card"><h2>My hours <button class="s" onclick="entForm(\'\')">+ Add time</button></h2>'+listHtml(done(),false)+'<div class="mut sm" style="margin-top:8px">Tap an entry to fix it or add notes. Paid time can only be changed by Josh.</div></div>';
+  return h;
+}
+function clockIn(){var p=pick('cw'),n=$('cn').value;store('kvLast',p.kind==='farm'?'farm':p.job);
+  where().then(function(l){return act('crew_clock_in',{p_token:TOKEN,p_kind:p.kind,p_job:p.job,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked in');});});}
+function saveNote(){var r=running();if(!r||!$('rn'))return;var v=$('rn').value;if(v===(r.note||''))return;r.note=v;rpc('crew_note',{p_token:TOKEN,p_note:v}).catch(function(){});}
+function clockOut(){var n=$('rn')?$('rn').value:'';if(!confirm('Clock out now?'))return;
+  where().then(function(l){return act('crew_clock_out',{p_token:TOKEN,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked out');});});}
+function switchForm(){var r=running();if(!r)return;
+  sheet('<h3>Switch</h3><div class="mut sm">This ends "'+esc(lbl(r))+'" now and starts the next thing. You stay on the clock.</div>'+
+    '<label>Notes for what you just finished</label><textarea id="sdn">'+esc($('rn')?$('rn').value:(r.note||''))+'</textarea>'+
+    '<label>Now working on</label><select id="sw">'+workOpts(r.kind==='farm'?'ya':'farm',null)+'</select><label>Notes (optional)</label><textarea id="sn"></textarea>'+
+    '<button class="b" onclick="doSwitch()">Switch</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');}
+function doSwitch(){var p=pick('sw'),dn=$('sdn').value,n=$('sn').value;
+  where().then(function(l){return act('crew_switch',{p_token:TOKEN,p_kind:p.kind,p_job:p.job,p_note:n,p_done_note:dn,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){closeSheet();toast('Switched');});});}
+
+/* ---- add / edit an entry ---- */
+function entForm(id){
+  var e=id?S.entries.filter(function(x){return x.id===id;})[0]:null;if(id&&!e)return;
+  var locked=e&&e.paid_at&&!owner();
+  var d=e?ymd(e.start_at):ymd(new Date()),a=e?hhmm(e.start_at):'08:00',b=e?hhmm(e.end_at):'17:00';
+  if(locked)return sheet('<h3>'+dlbl(d)+'</h3><div>'+esc(lbl(e))+' · '+f2(hrs(e))+' h</div>'+(e.note?'<p style="white-space:pre-wrap">'+esc(e.note)+'</p>':'')+'<div class="mut sm">This time is paid ('+dlbl(e.paid_at)+'). Ask Josh if it needs to change.</div><button class="b ghost" onclick="closeSheet()">Close</button>');
+  sheet('<h3>'+(e?'Edit time':'Add time')+'</h3>'+
+    '<label>Day</label><input id="ed" type="date" value="'+d+'" max="'+ymd(new Date())+'">'+
+    '<div class="grid2"><div><label>Start</label><input id="ea" type="time" value="'+a+'"></div><div><label>End</label><input id="eb" type="time" value="'+b+'"></div></div>'+
+    '<label>Work</label><select id="ew">'+workOpts(e?e.kind:'farm',e?e.job_id:null)+'</select>'+
+    '<label>Notes</label><textarea id="en">'+esc(e?e.note||'':'')+'</textarea>'+
+    (owner()&&e&&e.kind==='ya'?'<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:15px"><input type="checkbox" id="er" style="width:auto"'+(e.reimburse?' checked':'')+'> Yield Advantage pays me back for this time</label>':'')+
+    (owner()&&e&&(e.in_lat||e.out_lat)?'<div class="mut sm" style="margin-top:8px">'+(e.in_lat?'In: '+place(e.in_lat,e.in_lng):'')+(e.out_lat?' · Out: '+place(e.out_lat,e.out_lng):'')+'</div>':'')+
+    '<button class="b" onclick="saveEnt(\''+(id||'')+'\')">Save</button>'+
+    (e?'<button class="b ghost" style="color:var(--red)" onclick="delEnt(\''+id+'\')">Delete this entry</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function saveEnt(id){
+  var d=$('ed').value,a=$('ea').value,b=$('eb').value;if(!d||!a||!b)return alert('Fill in the day and both times');
+  var st=new Date(d+'T'+a+':00'),en=new Date(d+'T'+b+':00');if(en<=st)en=new Date(en.getTime()+864e5);
+  var p=pick('ew'),old=id?S.entries.filter(function(x){return x.id===id;})[0]:null;
+  rpc('crew_save_entry',{p_token:TOKEN,e:{id:id,start_at:st.toISOString(),end_at:en.toISOString(),kind:p.kind,job_id:p.job||'',note:$('en').value,source:old?old.source:'manual'}})
+    .then(function(){if($('er')&&old&&old.kind==='ya'&&p.kind==='ya'&&$('er').checked!==!!old.reimburse)return rpc('crew_set_reimburse',{p_token:TOKEN,p_id:id,p_on:$('er').checked});})
+    .then(function(){return refresh();}).then(function(){closeSheet();toast('Saved');}).catch(function(e){alert(e.message);});
+}
+function delEnt(id){if(!confirm('Delete this entry?'))return;act('crew_delete_entry',{p_token:TOKEN,p_id:id},function(){closeSheet();toast('Deleted');});}
+
+/* ---- owner ---- */
+function place(lat,lng){
+  var best=null;(S.places||[]).forEach(function(p){var R=3958.8,x=(lng-p.lng)*Math.PI/180*Math.cos((lat+p.lat)*Math.PI/360),y=(lat-p.lat)*Math.PI/180,m=Math.sqrt(x*x+y*y)*R;if(!best||m<best.m)best={n:p.name,m:m};});
+  return best?(best.m<1?'at '+esc(best.n):f2(best.m)+' mi from '+esc(best.n)):'location saved';
+}
+function vOwner(){
+  var r=running(),all=done(),h='';
+  h+='<div class="card"><h2>Right now</h2>'+(r?'<div><b style="color:var(--g)">On the clock</b> since '+tm(r.start_at)+' · '+hm(hrs(r))+'</div><div>'+esc(lbl(r))+'</div>'+(r.note?'<div class="mut sm" style="white-space:pre-wrap">'+esc(r.note)+'</div>':'')+(r.in_lat?'<div class="mut sm">Clocked in '+place(r.in_lat,r.in_lng)+'</div>':''):'<div class="mut">Not clocked in'+(all.length?' · last out '+dlbl(ymd(all[0].end_at))+' '+tm(all[0].end_at):'')+'</div>')+'</div>';
+  h+=totalsCard();
+  var ya=all.filter(function(e){return e.kind==='ya';}),rb=ya.filter(function(e){return e.reimburse;}),owe=rb.filter(function(e){return !e.reimbursed_at;});
+  var sum=function(l){return l.reduce(function(a,e){return a+hrs(e);},0);};
+  h+='<div class="card"><h2>Yield Advantage time</h2><div class="grid3"><div><b>'+f2(sum(ya))+'</b><span class="mut sm">on YA jobs</span></div><div><b>'+f2(sum(rb))+'</b><span class="mut sm">YA pays back</span></div><div><b style="color:'+(owe.length?'var(--amb)':'inherit')+'">'+f2(sum(owe))+'</b><span class="mut sm">YA still owes me</span></div></div>'+
+    '<div class="mut sm" style="margin-top:8px">Only time tagged to a YA job shows up in YA Hub, after it is finished. His clock status, farm hours and totals stay here. Customer jobs are marked "YA pays back"; owner-entity jobs are not.</div></div>';
+  var list=FILT==='unpaid'?all.filter(function(e){return !e.paid_at;}):FILT==='owe'?owe:FILT==='ya'?ya:all;
+  h+='<div class="card"><h2>Ledger <button class="s" onclick="entForm(\'\')">+ Add time</button></h2><div class="tabs">'+[['all','All'],['unpaid','Not paid'],['ya','YA jobs'],['owe','YA owes me']].map(function(t){return '<button class="'+(FILT===t[0]?'on':'')+'" onclick="FILT=\''+t[0]+'\';SEL={};render()">'+t[1]+'</button>';}).join('')+'</div>'+
+    (list.length?'<div style="margin-bottom:6px"><button class="s" onclick="selAll(true)">Tick all shown</button> <button class="s" onclick="selAll(false)">Clear</button></div>':'')+listHtml(list,true)+'</div>';
+  h+='<div class="card"><h2>Setup</h2><label>'+esc(S.who)+'\'s sign-in code'+(S.has_code?' (one is set; enter a new one to change it)':' (none yet, so he cannot sign in)')+'</label><div style="display:flex;gap:8px"><input id="kc" inputmode="numeric" maxlength="4" placeholder="4 digits"><button class="s" onclick="setCode()">Save</button></div>'+
+    '<button class="b alt" onclick="csv()">Download the ledger (CSV)</button></div>';
+  return h;
+}
+function shown(){var all=done();return FILT==='unpaid'?all.filter(function(e){return !e.paid_at;}):FILT==='owe'?all.filter(function(e){return e.kind==='ya'&&e.reimburse&&!e.reimbursed_at;}):FILT==='ya'?all.filter(function(e){return e.kind==='ya';}):all;}
+function tog(id){SEL[id]=!SEL[id];render();}
+function selAll(on){SEL={};if(on)shown().forEach(function(e){SEL[e.id]=true;});render();}
+function picked(){return done().filter(function(e){return SEL[e.id];});}
+function bar(){
+  var p=owner()?picked():[];if(!p.length){$('bar').style.display='none';return;}
+  var h=p.reduce(function(a,e){return a+hrs(e);},0),rb=p.filter(function(e){return e.reimburse;});
+  $('barIn').innerHTML='<div style="flex:1"><b>'+p.length+'</b> ticked · '+f2(h)+' h</div><button class="s" onclick="payForm()">Paid…</button>'+(rb.length?'<button class="s" onclick="rbForm()">YA paid back…</button>':'');
+  $('bar').style.display='block';
+}
+function payForm(){var p=picked(),h=p.reduce(function(a,e){return a+hrs(e);},0),any=p.some(function(e){return e.paid_at;});
+  sheet('<h3>Mark paid</h3><div>'+p.length+' entries · <b>'+f2(h)+' hours</b></div><label>Date paid</label><input id="pd" type="date" value="'+ymd(new Date())+'"><label>How (check number, cash, Venmo…)</label><input id="pr" placeholder="optional">'+
+    '<button class="b" onclick="doPay(true)">Mark paid</button>'+(any?'<button class="b alt" onclick="doPay(false)">Set back to not paid</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');}
+function doPay(on){var ids=picked().map(function(e){return e.id;});if(on&&!$('pd').value)return alert('Pick the date');
+  act('crew_mark_paid',{p_token:TOKEN,p_ids:ids,p_date:on?$('pd').value:null,p_ref:on?$('pr').value:null},function(){SEL={};closeSheet();render();toast(on?'Marked paid':'Set back to not paid');});}
+function rbForm(){var p=picked().filter(function(e){return e.reimburse;}),h=p.reduce(function(a,e){return a+hrs(e);},0),any=p.some(function(e){return e.reimbursed_at;});
+  sheet('<h3>Yield Advantage paid me back</h3><div>'+p.length+' entries · <b>'+f2(h)+' hours</b></div><label>Date</label><input id="pd" type="date" value="'+ymd(new Date())+'"><label>Reference (invoice, check…)</label><input id="pr" placeholder="optional">'+
+    '<button class="b" onclick="doRb(true)">Mark paid back</button>'+(any?'<button class="b alt" onclick="doRb(false)">Set back to owed</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');}
+function doRb(on){var ids=picked().filter(function(e){return e.reimburse;}).map(function(e){return e.id;});if(on&&!$('pd').value)return alert('Pick the date');
+  act('crew_mark_reimbursed',{p_token:TOKEN,p_ids:ids,p_date:on?$('pd').value:null,p_ref:on?$('pr').value:null},function(){SEL={};closeSheet();render();toast('Saved');});}
+function setCode(){var c=$('kc').value.trim();if(!/^\d{4}$/.test(c))return alert('Enter 4 digits');if(!confirm('Set the sign-in code to '+c+'? Any phone already signed in with the old code is signed out.'))return;
+  act('crew_set_code',{p_token:TOKEN,p_code:c},function(){toast('Code saved');});}
+function csv(){
+  var q=function(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  var rows=[['Date','Start','End','Hours','Work','YA job','Notes','Paid on','Paid how','YA pays back','YA paid back on','Source']];
+  done().slice().reverse().forEach(function(e){rows.push([ymd(e.start_at),e.source==='import'?'':tm(e.start_at),e.source==='import'?'':tm(e.end_at),f2(hrs(e)),e.kind==='ya'?'Yield Advantage':'Farm',e.job||'',e.note||'',e.paid_at||'',e.paid_ref||'',e.reimburse?'yes':'',e.reimbursed_at||'',e.source]);});
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(function(r){return r.map(q).join(',');}).join('\n')],{type:'text/csv'}));a.download=S.who+' hours ledger '+ymd(new Date())+'.csv';document.body.appendChild(a);a.click();a.remove();
+}
+
+TOKEN=load('kvToken');if(TOKEN)boot();else padView();
+</script>
+</body>
+</html>
