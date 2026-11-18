@@ -204,6 +204,7 @@ function vCrew(){
   }
   h+=reqCard()+totalsCard()+trackCard();
   h+='<div class="card"><h2>My hours <button class="s" onclick="entForm(\'\')">+ Add time</button></h2>'+listHtml(done(),false)+'<div class="mut sm" style="margin-top:8px">Tap an entry to fix it or add notes. Josh can see any time you add or change. Paid time can only be changed by Josh.</div></div>';
+  h+=stubCard();
   return h;
 }
 function clockIn(){var p=pick('cw'),n=$('cn').value;store('kvLast',p.raw);
@@ -245,6 +246,41 @@ function saveEnt(id){
 }
 function delEnt(id){if(!confirm('Delete this entry?'))return;act('crew_delete_entry',{p_token:TOKEN,p_id:id},function(){closeSheet();toast('Deleted');});}
 
+/* ---- paystubs ---- */
+function stubCard(){
+  var l=S.stubs||[];
+  return '<div class="card"><h2>Paystubs '+(owner()?'<button class="s" onclick="stubForm()">+ Add a paystub</button>':'<span>'+l.length+'</span>')+'</h2>'+
+    (l.length?l.map(function(t){return '<div class="row"><div class="f"><div><b>Paid '+dlbl(t.pay_date)+'</b>'+(String(t.pay_date).slice(0,4)!==String(new Date().getFullYear())?' '+String(t.pay_date).slice(0,4):'')+'</div>'+
+        ((t.period_from||t.period_to)?'<div class="sm mut">Pay period '+(t.period_from?dlbl(t.period_from):'')+' – '+(t.period_to?dlbl(t.period_to):'')+'</div>':'')+(t.label?'<div class="sm mut">'+esc(t.label)+'</div>':'')+'</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="s" onclick="stubGet(\''+t.id+'\')">Download</button>'+(owner()?'<button class="s" onclick="stubDel(\''+t.id+'\')">Remove</button>':'')+'</div></div>';}).join('')
+      :'<div class="mut sm">'+(owner()?'None yet. Add the stub files from OnPay here and '+esc(S.who)+' can download them.':'None yet. Josh adds them here after each payday.')+'</div>')+'</div>';
+}
+function stubGet(id){
+  toast('Getting the paystub…');
+  rpc('crew_stub_get',{p_token:TOKEN,p_id:id}).then(function(r){
+    var bin=atob(r.data),n=bin.length,u=new Uint8Array(n);for(var i=0;i<n;i++)u[i]=bin.charCodeAt(i);
+    var url=URL.createObjectURL(new Blob([u],{type:r.mime||'application/pdf'})),a=document.createElement('a');a.href=url;a.download=r.filename||'paystub.pdf';a.target='_blank';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},60000);
+  }).catch(function(e){if(e.message!=='Signed out')alert(e.message);});
+}
+function stubForm(){
+  sheet('<h3>Add a paystub</h3><div class="mut sm">Pick the stub file from OnPay (PDF or a photo). Only you and '+esc(S.who)+' can open it.</div>'+
+    '<label>File</label><input id="sf" type="file" accept="application/pdf,image/*">'+
+    '<label>Pay date</label><input id="sd" type="date" value="'+ymd(new Date())+'">'+
+    '<div class="grid2"><div><label>Period from (optional)</label><input id="sa" type="date"></div><div><label>Period to (optional)</label><input id="sb" type="date"></div></div>'+
+    '<label>Note (optional)</label><input id="sl" placeholder="for example: check 2291">'+
+    '<button class="b" id="sbtn" onclick="stubSave()">Add paystub</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function stubSave(){
+  var f=$('sf').files[0];if(!f)return alert('Pick the file');if(!$('sd').value)return alert('Enter the pay date');if(f.size>4000000)return alert('That file is too big (4 MB limit).');
+  $('sbtn').disabled=true;$('sbtn').textContent='Uploading…';
+  var rd=new FileReader();rd.onerror=function(){alert('Could not read that file');};
+  rd.onload=function(){var b64=String(rd.result).split(',')[1]||'';
+    rpc('crew_stub_add',{p_token:TOKEN,p_meta:{pay_date:$('sd').value,period_from:$('sa').value,period_to:$('sb').value,label:$('sl').value,filename:f.name,mime:f.type||'application/pdf'},p_data:b64})
+      .then(function(){return refresh();}).then(function(){closeSheet();toast('Paystub added');}).catch(function(e){$('sbtn').disabled=false;$('sbtn').textContent='Add paystub';alert(e.message);});};
+  rd.readAsDataURL(f);
+}
+function stubDel(id){if(!confirm('Remove this paystub from the hub?'))return;act('crew_stub_delete',{p_token:TOKEN,p_id:id},function(){toast('Removed');});}
+
 /* ---- owner ---- */
 function place(lat,lng){
   var best=null;(S.places||[]).forEach(function(p){var R=3958.8,x=(lng-p.lng)*Math.PI/180*Math.cos((lat+p.lat)*Math.PI/360),y=(lat-p.lat)*Math.PI/180,m=Math.sqrt(x*x+y*y)*R;if(!best||m<best.m)best={n:p.name,m:m};});
@@ -259,6 +295,7 @@ function vOwner(){
   var list=shown();
   h+='<div class="card"><h2>Ledger <button class="s" onclick="entForm(\'\')">+ Add time</button></h2><div class="tabs">'+[['all','All'],['unpaid','Not paid'],['dealag','Deal Ag'],['ya','Yield Advantage'],['owe','Owed back to me']].map(function(t){return '<button class="'+(FILT===t[0]?'on':'')+'" onclick="FILT=\''+t[0]+'\';SEL={};render()">'+t[1]+'</button>';}).join('')+'</div>'+
     (list.length?'<div style="margin-bottom:6px"><button class="s" onclick="selAll(true)">Tick all shown</button> <button class="s" onclick="selAll(false)">Clear</button></div>':'')+listHtml(list,true)+'</div>';
+  h+=stubCard();
   var lg=S.log||[];
   h+='<div class="card"><h2>Changes '+esc(S.who)+' made <span>'+lg.length+'</span></h2>'+(lg.length?lg.slice(0,LOGN).map(function(l){var has=l.what!=='deleted'&&S.entries.some(function(x){return x.id===l.entry_id;});
       return '<div class="row'+(has?' tap" onclick="entForm(\''+l.entry_id+'\')':'')+'"><div class="f"><div><b>'+({added:'Added time by hand',changed:'Changed an entry',deleted:'Deleted an entry'}[l.what]||esc(l.what))+'</b> <span class="mut sm">'+dlbl(ymd(l.at))+' '+tm(l.at)+'</span></div><div class="sm" style="white-space:pre-wrap">'+esc(l.detail||'')+'</div></div></div>';}).join('')+
