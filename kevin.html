@@ -57,6 +57,7 @@ button{font:inherit;cursor:pointer}
 .dots{font-size:34px;letter-spacing:10px;height:46px}
 .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .keys button{padding:18px 0;font-size:22px;border-radius:14px;border:1px solid #c9d3c4;background:#fff;color:var(--ink)}
+.card.col>h2{cursor:pointer;margin-bottom:0;user-select:none;-webkit-user-select:none}.card.col.open>h2{margin-bottom:10px}.card.col:not(.open)>*:not(h2){display:none!important}.chv{display:inline-block;width:16px;font-style:normal}
 </style>
 </head>
 <body>
@@ -66,7 +67,7 @@ button{font:inherit;cursor:pointer}
 <div id="sheet" onclick="if(event.target===this)closeSheet()"><div id="sheetIn"></div></div>
 <div id="toast"></div>
 <script>
-var VERSION = 8;
+var VERSION = 9;
 var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
 var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
 var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null, LOGN = 10;
@@ -146,6 +147,21 @@ function boot(){
 }
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&TOKEN&&S)refresh().catch(function(){});});
 
+/* ---- sections that open and close (closed to start) ---- */
+var OPEN={};try{OPEN=JSON.parse(load('kvOpen')||'{}')||{};}catch(e){OPEN={};}
+function collapse(){
+  var cs=$('app').querySelectorAll('.card');
+  for(var i=0;i<cs.length;i++){(function(c){
+    var h=c.querySelector('h2');if(!h||h.parentNode!==c)return;var n=h.childNodes[0];if(!n||n.nodeType!==3)return;
+    var t=n.textContent.trim(),k=/^My hours/.test(t)?'hours':/^Ledger/.test(t)?'ledger':/^Paystubs/.test(t)?'stubs':/^Changes/.test(t)?'log':/sign-ins$/.test(t)?'logins':/^Setup/.test(t)?'setup':'';
+    if(!k)return;k=(owner()?'o:':'k:')+k;
+    var w=document.createElement('span');w.innerHTML='<i class="chv"></i>';w.appendChild(document.createTextNode(n.textContent));h.replaceChild(w,n);
+    var set=function(){c.classList.toggle('open',!!OPEN[k]);w.firstChild.textContent=OPEN[k]?'▾':'▸';};
+    c.classList.add('col');set();
+    h.onclick=function(ev){if(ev.target.closest('button'))return;OPEN[k]=!OPEN[k];store('kvOpen',JSON.stringify(OPEN));set();};
+  })(cs[i]);}
+}
+
 /* ---- sheet ---- */
 function sheet(h){$('sheetIn').innerHTML='<div class="sxw"><button class="sx" onclick="closeSheet()" aria-label="Close">✕</button></div>'+h;$('sheet').style.display='flex';$('sheetIn').scrollTop=0;}
 function closeSheet(){$('sheet').style.display='none';}
@@ -170,7 +186,7 @@ function render(){
   var keep={},rid=(running()||{}).id||'';if($('cn'))keep.cn=$('cn').value;if($('rn')&&render.rid===rid)keep.rn=$('rn').value;render.rid=rid;
   $('app').innerHTML=(PREVIEW?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>'+esc(S.who)+'\'s view</b><div class="sm">This is what '+esc(S.who)+' sees when he signs in. It is a preview, so nothing can be changed from here.</div><button class="b alt" style="margin-top:8px" onclick="setPreview(false)">Back to my view</button></div>':'')+(owner()?vOwner():vCrew());
   ['cn','rn'].forEach(function(i){if($(i)&&keep[i]!=null&&document.activeElement!==$(i))$(i).value=keep[i];});
-  bar();clearInterval(TICK);
+  collapse();bar();clearInterval(TICK);
   if(running())TICK=setInterval(function(){var r=running(),el=$('el');if(r&&el)el.textContent=hm(hrs(r));},20000);
 }
 function totals(list){var w=0,p=0;list.forEach(function(e){var h=hrs(e);w+=h;if(e.paid_at)p+=h;});return {w:w,p:p,u:w-p};}
