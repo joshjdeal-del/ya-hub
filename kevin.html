@@ -107,7 +107,7 @@ function reqCard(){
     (owner()?'':'<div class="mut sm" style="margin-top:6px">These do not count until Josh approves them.</div>')+'</div>';
 }
 function decide(id,ok){if(!ok&&!confirm('Decline this request?'))return;act('crew_decide',{p_token:TOKEN,p_id:id,p_ok:ok},function(){toast(ok?'Approved':'Declined');});}
-function lbl(e){return e.kind==='ya'?('Yield Advantage'+(e.job?': '+e.job:'')):e.kind==='dealag'?'Deal Ag (Justin)':'Farm';}
+function lbl(e){return e.kind==='ya'?('Yield Advantage'+(e.job?': '+e.job:'')):e.kind==='dealag'?('Deal Ag'+(e.task?': '+e.task:' (Justin)')):'Farm';}
 function boss(){return owner()?'me':'Josh';}
 function owedBy(e){return e.kind==='dealag'?'Deal Ag':'YA';}
 function sumH(l){return l.reduce(function(a,e){return a+hrs(e);},0);}
@@ -146,16 +146,17 @@ function sheet(h){$('sheetIn').innerHTML='<div class="sxw"><button class="sx" on
 function closeSheet(){$('sheet').style.display='none';}
 function where(){return new Promise(function(res){if(!navigator.geolocation)return res({});var d=false;var t=setTimeout(function(){if(!d){d=true;res({});}},7000);
   navigator.geolocation.getCurrentPosition(function(p){if(d)return;d=true;clearTimeout(t);res({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy});},function(){if(d)return;d=true;clearTimeout(t);res({});},{enableHighAccuracy:true,timeout:6500,maximumAge:60000});});}
-function workOpts(kind,job){
+function workOpts(kind,job,task){
   var ya=S.jobs.filter(function(j){return j.cust;}),other=S.jobs.filter(function(j){return !j.cust;});
   var o=function(j){return '<option value="'+j.id+'"'+(kind==='ya'&&job===j.id?' selected':'')+'>'+esc(j.label)+'</option>';};
   return '<option value="farm"'+(kind!=='ya'&&kind!=='dealag'?' selected':'')+'>Farm (Ideal Farms)</option>'+
-    '<option value="dealag"'+(kind==='dealag'?' selected':'')+'>Deal Ag (Justin)</option>'+
+    '<optgroup label="Deal Ag (Justin)"><option value="dealag"'+(kind==='dealag'&&!task?' selected':'')+'>Deal Ag (general)</option>'+(S.dealag_types||[]).map(function(t){return '<option value="dealag:'+esc(t)+'"'+(kind==='dealag'&&task===t?' selected':'')+'>Deal Ag: '+esc(t)+'</option>';}).join('')+
+      (kind==='dealag'&&task&&(S.dealag_types||[]).indexOf(task)<0?'<option value="dealag:'+esc(task)+'" selected>Deal Ag: '+esc(task)+'</option>':'')+'</optgroup>'+
     '<option value="ya"'+(kind==='ya'&&!job?' selected':'')+'>Yield Advantage (no specific job)</option>'+
     (ya.length?'<optgroup label="Yield Advantage jobs">'+ya.map(o).join('')+'</optgroup>':'')+
     (other.length?'<optgroup label="Yield Advantage shop / other">'+other.map(o).join('')+'</optgroup>':'');
 }
-function pick(id){var v=$(id).value;return (v==='farm'||v==='dealag'||v==='ya')?{kind:v,job:null}:{kind:'ya',job:v};}
+function pick(id){var v=$(id).value;if(v.indexOf('dealag:')===0)return {kind:'dealag',job:null,task:v.slice(7),send:v,raw:v};return (v==='farm'||v==='dealag'||v==='ya')?{kind:v,job:null,send:v,raw:v}:{kind:'ya',job:v,send:'ya',raw:v};}
 
 /* ---- render ---- */
 function render(){
@@ -176,7 +177,7 @@ function entRow(e,sel){
   var imp=e.source==='import';
   return '<div class="row tap" onclick="'+(sel?'tog(\''+e.id+'\')':'entForm(\''+e.id+'\')')+'">'+(sel?'<div class="chk'+(SEL[e.id]?' on':'')+'">'+(SEL[e.id]?'✓':'')+'</div>':'')+
     '<div class="f"><div>'+dlbl(ymd(e.start_at))+(imp?'':' <span class="mut sm">'+tm(e.start_at)+' – '+tm(e.end_at)+'</span>')+'</div>'+
-    '<div class="sm">'+(e.kind==='ya'?'<span class="pill blue">YA</span> '+esc(e.job||'Yield Advantage'):e.kind==='dealag'?'<span class="pill blue">Deal Ag</span> Justin':'<span class="pill gray">Farm</span>')+'</div>'+
+    '<div class="sm">'+(e.kind==='ya'?'<span class="pill blue">YA</span> '+esc(e.job||'Yield Advantage'):e.kind==='dealag'?'<span class="pill blue">Deal Ag</span> '+esc(e.task||'Justin'):'<span class="pill gray">Farm</span>')+'</div>'+
     (e.note?'<div class="mut sm" style="white-space:pre-wrap">'+esc(e.note)+'</div>':'')+
     '<div style="margin-top:3px">'+(e.paid_at?'<span class="pill">paid '+dlbl(e.paid_at)+(e.paid_ref?' · '+esc(e.paid_ref):'')+'</span>':'<span class="pill amb">not paid</span>')+
       (e.reimburse?(e.reimbursed_at?' <span class="pill">'+owedBy(e)+' paid '+boss()+' back '+dlbl(e.reimbursed_at)+'</span>':' <span class="pill amb">'+owedBy(e)+' owes '+boss()+'</span>'):'')+
@@ -198,15 +199,15 @@ function vCrew(){
       '<label>What you are doing</label><textarea id="rn" onblur="saveNote()" placeholder="Notes for this stretch">'+esc(r.note||'')+'</textarea>'+
       '<button class="b alt" onclick="switchForm()">Switch to something else</button><button class="b red" onclick="clockOut()">Clock out</button></div>';
   }else{
-    h+='<div class="card"><h2>Clock in</h2><label>What are you working on?</label><select id="cw">'+workOpts(/^(farm|dealag|ya)$/.test(load('kvLast'))||!load('kvLast')?(load('kvLast')||'farm'):'ya',/^(farm|dealag|ya)$/.test(load('kvLast'))?null:load('kvLast'))+'</select>'+
+    h+='<div class="card"><h2>Clock in</h2><label>What are you working on?</label><select id="cw">'+(function(){var l=load('kvLast')||'farm';if(l.indexOf('dealag:')===0)return workOpts('dealag',null,l.slice(7));return /^(farm|dealag|ya)$/.test(l)?workOpts(l,null):workOpts('ya',l);})()+'</select>'+
       '<label>Notes (optional)</label><textarea id="cn" placeholder="What you are doing"></textarea><button class="b" onclick="clockIn()">Clock in</button></div>';
   }
   h+=reqCard()+totalsCard()+trackCard();
   h+='<div class="card"><h2>My hours <button class="s" onclick="entForm(\'\')">+ Add time</button></h2>'+listHtml(done(),false)+'<div class="mut sm" style="margin-top:8px">Tap an entry to fix it or add notes. Josh can see any time you add or change. Paid time can only be changed by Josh.</div></div>';
   return h;
 }
-function clockIn(){var p=pick('cw'),n=$('cn').value;store('kvLast',p.job||p.kind);
-  where().then(function(l){return act('crew_clock_in',{p_token:TOKEN,p_kind:p.kind,p_job:p.job,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked in');});});}
+function clockIn(){var p=pick('cw'),n=$('cn').value;store('kvLast',p.raw);
+  where().then(function(l){return act('crew_clock_in',{p_token:TOKEN,p_kind:p.send,p_job:p.job,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked in');});});}
 function saveNote(){var r=running();if(!r||!$('rn'))return;var v=$('rn').value;if(v===(r.note||''))return;r.note=v;rpc('crew_note',{p_token:TOKEN,p_note:v}).catch(function(){});}
 function clockOut(){var n=$('rn')?$('rn').value:'';if(!confirm('Clock out now?'))return;
   where().then(function(l){return act('crew_clock_out',{p_token:TOKEN,p_note:n,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){toast('Clocked out');});});}
@@ -216,7 +217,7 @@ function switchForm(){var r=running();if(!r)return;
     '<label>Now working on</label><select id="sw">'+workOpts('farm',null)+'</select><label>Notes (optional)</label><textarea id="sn"></textarea>'+
     '<button class="b" onclick="doSwitch()">Switch</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');}
 function doSwitch(){var p=pick('sw'),dn=$('sdn').value,n=$('sn').value;
-  where().then(function(l){return act('crew_switch',{p_token:TOKEN,p_kind:p.kind,p_job:p.job,p_note:n,p_done_note:dn,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){closeSheet();toast('Switched');});});}
+  where().then(function(l){return act('crew_switch',{p_token:TOKEN,p_kind:p.send,p_job:p.job,p_note:n,p_done_note:dn,p_lat:l.lat||null,p_lng:l.lng||null,p_acc:l.acc||null},function(){closeSheet();toast('Switched');});});}
 
 /* ---- add / edit an entry ---- */
 function entForm(id){
@@ -227,7 +228,7 @@ function entForm(id){
   sheet('<h3>'+(e?'Edit time':'Add time')+'</h3>'+(owner()?'':'<div class="mut sm">Josh can see time you add or change, and when you did it.</div>')+
     '<label>Day</label><input id="ed" type="date" value="'+d+'" max="'+ymd(new Date())+'">'+
     '<div class="grid2"><div><label>Start</label><input id="ea" type="time" value="'+a+'"></div><div><label>End</label><input id="eb" type="time" value="'+b+'"></div></div>'+
-    '<label>Work</label><select id="ew">'+workOpts(e?e.kind:'farm',e?e.job_id:null)+'</select>'+
+    '<label>Work</label><select id="ew">'+workOpts(e?e.kind:'farm',e?e.job_id:null,e?e.task:null)+'</select>'+
     '<label>Notes</label><textarea id="en">'+esc(e?e.note||'':'')+'</textarea>'+
     (owner()&&e&&e.kind!=='farm'?'<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:15px"><input type="checkbox" id="er" style="width:auto"'+(e.reimburse?' checked':'')+'> This time gets paid back to me</label>':'')+
     (owner()&&e&&(e.in_lat||e.out_lat)?'<div class="mut sm" style="margin-top:8px">'+(e.in_lat?'In: '+place(e.in_lat,e.in_lng):'')+(e.out_lat?' · Out: '+place(e.out_lat,e.out_lng):'')+'</div>':'')+
@@ -238,7 +239,7 @@ function saveEnt(id){
   var d=$('ed').value,a=$('ea').value,b=$('eb').value;if(!d||!a||!b)return alert('Fill in the day and both times');
   var st=new Date(d+'T'+a+':00'),en=new Date(d+'T'+b+':00');if(en<=st)en=new Date(en.getTime()+864e5);
   var p=pick('ew'),old=id?S.entries.filter(function(x){return x.id===id;})[0]:null;
-  rpc('crew_save_entry',{p_token:TOKEN,e:{id:id,start_at:st.toISOString(),end_at:en.toISOString(),kind:p.kind,job_id:p.job||'',note:$('en').value,source:old?old.source:'manual'}})
+  rpc('crew_save_entry',{p_token:TOKEN,e:{id:id,start_at:st.toISOString(),end_at:en.toISOString(),kind:p.kind,job_id:p.job||'',task:p.task||'',note:$('en').value,source:old?old.source:'manual'}})
     .then(function(r){saveEnt.req=r&&r.requested;if($('er')&&old&&old.kind===p.kind&&(old.job_id||null)===(p.job||null)&&$('er').checked!==!!old.reimburse)return rpc('crew_set_reimburse',{p_token:TOKEN,p_id:id,p_on:$('er').checked});})
     .then(function(){return refresh();}).then(function(){closeSheet();toast('Saved');}).catch(function(e){alert(e.message);});
 }
@@ -291,7 +292,7 @@ function setCode(){var c=$('kc').value.trim();if(!/^\d{4}$/.test(c))return alert
 function csv(){
   var q=function(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   var rows=[['Date','Start','End','Hours','Work','YA job','Notes','Paid on','Paid how','Paid back to Josh','Paid back on','Source']];
-  done().slice().reverse().forEach(function(e){rows.push([ymd(e.start_at),e.source==='import'?'':tm(e.start_at),e.source==='import'?'':tm(e.end_at),f2(hrs(e)),e.kind==='ya'?'Yield Advantage':e.kind==='dealag'?'Deal Ag (Justin)':'Farm',e.job||'',e.note||'',e.paid_at||'',e.paid_ref||'',e.reimburse?'yes':'',e.reimbursed_at||'',e.source]);});
+  done().slice().reverse().forEach(function(e){rows.push([ymd(e.start_at),e.source==='import'?'':tm(e.start_at),e.source==='import'?'':tm(e.end_at),f2(hrs(e)),e.kind==='ya'?'Yield Advantage':e.kind==='dealag'?'Deal Ag (Justin)':'Farm',e.job||e.task||'',e.note||'',e.paid_at||'',e.paid_ref||'',e.reimburse?'yes':'',e.reimbursed_at||'',e.source]);});
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(function(r){return r.map(q).join(',');}).join('\n')],{type:'text/csv'}));a.download=S.who+' hours ledger '+ymd(new Date())+'.csv';document.body.appendChild(a);a.click();a.remove();
 }
 
