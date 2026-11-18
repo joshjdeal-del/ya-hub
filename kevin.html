@@ -68,7 +68,7 @@ button{font:inherit;cursor:pointer}
 <script>
 var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
 var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
-var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null;
+var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null, LOGN = 10;
 function $(i){return document.getElementById(i);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function store(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}}
@@ -180,7 +180,7 @@ function entRow(e,sel){
     (e.note?'<div class="mut sm" style="white-space:pre-wrap">'+esc(e.note)+'</div>':'')+
     '<div style="margin-top:3px">'+(e.paid_at?'<span class="pill">paid '+dlbl(e.paid_at)+(e.paid_ref?' · '+esc(e.paid_ref):'')+'</span>':'<span class="pill amb">not paid</span>')+
       (e.reimburse?(e.reimbursed_at?' <span class="pill">'+owedBy(e)+' paid '+boss()+' back '+dlbl(e.reimbursed_at)+'</span>':' <span class="pill amb">'+owedBy(e)+' owes '+boss()+'</span>'):'')+
-      (e.proposed?' <span class="pill amb">change requested</span>':'')+(owner()&&sel?' <button class="s" style="padding:2px 8px" onclick="event.stopPropagation();entForm(\''+e.id+'\')">Edit</button>':'')+'</div></div>'+
+      (owner()&&e.edited?' <span class="pill amb">'+esc(S.who)+' added or changed '+dlbl(ymd(e.edited_at))+' '+tm(e.edited_at)+'</span>':'')+(owner()&&sel?' <button class="s" style="padding:2px 8px" onclick="event.stopPropagation();entForm(\''+e.id+'\')">Edit</button>':'')+'</div></div>'+
     '<div class="n">'+f2(hrs(e))+'</div></div>';
 }
 function listHtml(list,sel){
@@ -202,7 +202,7 @@ function vCrew(){
       '<label>Notes (optional)</label><textarea id="cn" placeholder="What you are doing"></textarea><button class="b" onclick="clockIn()">Clock in</button></div>';
   }
   h+=reqCard()+totalsCard()+trackCard();
-  h+='<div class="card"><h2>My hours <button class="s" onclick="entForm(\'\')">Request time</button></h2>'+listHtml(done(),false)+'<div class="mut sm" style="margin-top:8px">Tap an entry to add notes. Missed time and time changes go to Josh as a request.</div></div>';
+  h+='<div class="card"><h2>My hours <button class="s" onclick="entForm(\'\')">+ Add time</button></h2>'+listHtml(done(),false)+'<div class="mut sm" style="margin-top:8px">Tap an entry to fix it or add notes. Josh can see any time you add or change. Paid time can only be changed by Josh.</div></div>';
   return h;
 }
 function clockIn(){var p=pick('cw'),n=$('cn').value;store('kvLast',p.job||p.kind);
@@ -224,15 +224,15 @@ function entForm(id){
   var locked=e&&e.paid_at&&!owner();
   var d=e?ymd(e.start_at):ymd(new Date()),a=e?hhmm(e.start_at):'08:00',b=e?hhmm(e.end_at):'17:00';
   if(locked)return sheet('<h3>'+dlbl(d)+'</h3><div>'+esc(lbl(e))+' · '+f2(hrs(e))+' h</div>'+(e.note?'<p style="white-space:pre-wrap">'+esc(e.note)+'</p>':'')+'<div class="mut sm">This time is paid ('+dlbl(e.paid_at)+'). Ask Josh if it needs to change.</div><button class="b ghost" onclick="closeSheet()">Close</button>');
-  sheet('<h3>'+(owner()?(e?'Edit time':'Add time'):(e?'Notes or a time fix':'Request time'))+'</h3>'+(owner()?'':'<div class="mut sm">'+(e?'Notes save right away. A change to the times or who it was for goes to Josh to approve.':'Josh has to approve this before it counts.')+'</div>')+
+  sheet('<h3>'+(e?'Edit time':'Add time')+'</h3>'+(owner()?'':'<div class="mut sm">Josh can see time you add or change, and when you did it.</div>')+
     '<label>Day</label><input id="ed" type="date" value="'+d+'" max="'+ymd(new Date())+'">'+
     '<div class="grid2"><div><label>Start</label><input id="ea" type="time" value="'+a+'"></div><div><label>End</label><input id="eb" type="time" value="'+b+'"></div></div>'+
     '<label>Work</label><select id="ew">'+workOpts(e?e.kind:'farm',e?e.job_id:null)+'</select>'+
     '<label>Notes</label><textarea id="en">'+esc(e?e.note||'':'')+'</textarea>'+
     (owner()&&e&&e.kind!=='farm'?'<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:15px"><input type="checkbox" id="er" style="width:auto"'+(e.reimburse?' checked':'')+'> This time gets paid back to me</label>':'')+
     (owner()&&e&&(e.in_lat||e.out_lat)?'<div class="mut sm" style="margin-top:8px">'+(e.in_lat?'In: '+place(e.in_lat,e.in_lng):'')+(e.out_lat?' · Out: '+place(e.out_lat,e.out_lng):'')+'</div>':'')+
-    '<button class="b" onclick="saveEnt(\''+(id||'')+'\')">'+(owner()||e?'Save':'Send to Josh')+'</button>'+
-    (e&&owner()?'<button class="b ghost" style="color:var(--red)" onclick="delEnt(\''+id+'\')">Delete this entry</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');
+    '<button class="b" onclick="saveEnt(\''+(id||'')+'\')">Save</button>'+
+    (e&&(owner()||!e.paid_at)?'<button class="b ghost" style="color:var(--red)" onclick="delEnt(\''+id+'\')">Delete this entry</button>':'')+'<button class="b ghost" onclick="closeSheet()">Cancel</button>');
 }
 function saveEnt(id){
   var d=$('ed').value,a=$('ea').value,b=$('eb').value;if(!d||!a||!b)return alert('Fill in the day and both times');
@@ -240,9 +240,9 @@ function saveEnt(id){
   var p=pick('ew'),old=id?S.entries.filter(function(x){return x.id===id;})[0]:null;
   rpc('crew_save_entry',{p_token:TOKEN,e:{id:id,start_at:st.toISOString(),end_at:en.toISOString(),kind:p.kind,job_id:p.job||'',note:$('en').value,source:old?old.source:'manual'}})
     .then(function(r){saveEnt.req=r&&r.requested;if($('er')&&old&&old.kind===p.kind&&(old.job_id||null)===(p.job||null)&&$('er').checked!==!!old.reimburse)return rpc('crew_set_reimburse',{p_token:TOKEN,p_id:id,p_on:$('er').checked});})
-    .then(function(){return refresh();}).then(function(){closeSheet();toast(saveEnt.req?'Sent to Josh for approval':'Saved');}).catch(function(e){alert(e.message);});
+    .then(function(){return refresh();}).then(function(){closeSheet();toast('Saved');}).catch(function(e){alert(e.message);});
 }
-function delEnt(id){if(!confirm(owner()?'Delete this entry?':'Cancel this request?'))return;act('crew_delete_entry',{p_token:TOKEN,p_id:id},function(){closeSheet();toast('Deleted');});}
+function delEnt(id){if(!confirm('Delete this entry?'))return;act('crew_delete_entry',{p_token:TOKEN,p_id:id},function(){closeSheet();toast('Deleted');});}
 
 /* ---- owner ---- */
 function place(lat,lng){
@@ -258,6 +258,10 @@ function vOwner(){
   var list=shown();
   h+='<div class="card"><h2>Ledger <button class="s" onclick="entForm(\'\')">+ Add time</button></h2><div class="tabs">'+[['all','All'],['unpaid','Not paid'],['dealag','Deal Ag'],['ya','Yield Advantage'],['owe','Owed back to me']].map(function(t){return '<button class="'+(FILT===t[0]?'on':'')+'" onclick="FILT=\''+t[0]+'\';SEL={};render()">'+t[1]+'</button>';}).join('')+'</div>'+
     (list.length?'<div style="margin-bottom:6px"><button class="s" onclick="selAll(true)">Tick all shown</button> <button class="s" onclick="selAll(false)">Clear</button></div>':'')+listHtml(list,true)+'</div>';
+  var lg=S.log||[];
+  h+='<div class="card"><h2>Changes '+esc(S.who)+' made <span>'+lg.length+'</span></h2>'+(lg.length?lg.slice(0,LOGN).map(function(l){var has=l.what!=='deleted'&&S.entries.some(function(x){return x.id===l.entry_id;});
+      return '<div class="row'+(has?' tap" onclick="entForm(\''+l.entry_id+'\')':'')+'"><div class="f"><div><b>'+({added:'Added time by hand',changed:'Changed an entry',deleted:'Deleted an entry'}[l.what]||esc(l.what))+'</b> <span class="mut sm">'+dlbl(ymd(l.at))+' '+tm(l.at)+'</span></div><div class="sm" style="white-space:pre-wrap">'+esc(l.detail||'')+'</div></div></div>';}).join('')+
+      (lg.length>LOGN?'<button class="s" style="margin-top:8px" onclick="LOGN+=20;render()">Show more</button>':''):'<div class="mut sm">Nothing yet. Time he adds by hand, time changes and deletes show up here with the date and time he did it. Clocking in and out and notes are not listed.</div>')+'</div>';
   h+='<div class="card"><h2>Setup</h2><label>'+esc(S.who)+'\'s sign-in code'+(S.has_code?' (one is set; enter a new one to change it)':' (none yet, so he cannot sign in)')+'</label><div style="display:flex;gap:8px"><input id="kc" inputmode="numeric" maxlength="4" placeholder="4 digits"><button class="s" onclick="setCode()">Save</button></div>'+
     '<button class="b alt" onclick="csv()">Download the ledger (CSV)</button></div>';
   return h;
