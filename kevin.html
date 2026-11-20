@@ -67,7 +67,7 @@ button{font:inherit;cursor:pointer}
 <div id="sheet" onclick="if(event.target===this)closeSheet()"><div id="sheetIn"></div></div>
 <div id="toast"></div>
 <script>
-var VERSION = 9;
+var VERSION = 10;
 var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
 var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
 var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null, LOGN = 10;
@@ -90,7 +90,7 @@ function dlbl(s){var d=new Date(s+'T12:00:00');return ['Sun','Mon','Tue','Wed','
 function hrs(e){return ((e.end_at?new Date(e.end_at):new Date())-new Date(e.start_at))/36e5;}
 function f2(n){return (Math.round(n*100)/100).toFixed(2);}
 function hm(h){var m=Math.round(h*60);return Math.floor(m/60)+'h '+pad2(m%60)+'m';}
-function monday(s){var d=new Date(s+'T12:00:00');d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d);}
+function monday(s){var d=new Date(s+'T12:00:00');d.setDate(d.getDate()-d.getDay());return ymd(d);}
 var PREVIEW=false;
 function realOwner(){return S&&S.me.owner;}
 function owner(){return S&&S.me.owner&&!PREVIEW;}
@@ -192,7 +192,7 @@ function render(){
 function totals(list){var w=0,p=0;list.forEach(function(e){var h=hrs(e);w+=h;if(e.paid_at)p+=h;});return {w:w,p:p,u:w-p};}
 function totalsCard(){
   var t=totals(done()),wk=monday(ymd(new Date())),tw=0;done().forEach(function(e){if(monday(ymd(e.start_at))===wk)tw+=hrs(e);});var r=running();if(r&&monday(ymd(r.start_at))===wk)tw+=hrs(r);
-  return '<div class="card"><h2>Hours <span>this week '+f2(tw)+'</span></h2><div class="grid3"><div><b>'+f2(t.w)+'</b><span class="mut sm">worked</span></div><div><b>'+f2(t.p)+'</b><span class="mut sm">paid</span></div><div><b style="color:'+(t.u>0.005?'var(--amb)':'inherit')+'">'+f2(t.u)+'</b><span class="mut sm">not paid yet</span></div></div></div>';
+  return '<div class="card"><h2>Hours</h2><div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid var(--line,#ddd)"><div><b>This week</b><div class="mut sm">since Sunday, '+dlbl(wk)+'</div></div><b style="font-size:26px">'+f2(tw)+' h</b></div><div class="grid3"><div><b>'+f2(t.w)+'</b><span class="mut sm">worked</span></div><div><b>'+f2(t.p)+'</b><span class="mut sm">paid</span></div><div><b style="color:'+(t.u>0.005?'var(--amb)':'inherit')+'">'+f2(t.u)+'</b><span class="mut sm">not paid yet</span></div></div></div>';
 }
 function entRow(e,sel){
   var imp=e.source==='import';
