@@ -198,7 +198,7 @@ function key(x){
   if(typed.length===4){var c=typed;typed='';
     rpc('login',{p_code:c}).then(function(r){if(!r.ok){padView(r.why);return;}TOKEN=r.token;store('yaToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
 }
-function signOut(silent){if(TOKEN&&!silent)rpc('logout',{p_token:TOKEN},true).catch(function(){});TOKEN='';S=null;store('yaToken',null);clearInterval(boot.t);padView(silent?'Signed out — enter your code':'');}
+function signOut(silent){if(TOKEN&&!silent)rpc('logout',{p_token:TOKEN},true).catch(function(){});TOKEN='';S=null;CHECKS=null;store('yaToken',null);clearInterval(boot.t);padView(silent?'Signed out — enter your code':'');}
 
 /* ===== data ===== */
 function range(){
@@ -243,7 +243,7 @@ function render(){
   $('nav').innerHTML=tabs.map(function(t){var dot=(t[0]==='msgs'&&un)?'<span class="dot">'+un+'</span>':(t[0]==='team'&&pend)?'<span class="dot">'+pend+'</span>':'';
     return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+ICON[t[0]]+t[1]+dot+'</button>';}).join('');
   var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
-  var keep={};['mb','in','rn'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
+  var keep={};['mb','in','rn','ck'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
   var lockCard=S.login_locked?'<div class="card" style="border-color:var(--red);background:#fdecec"><b style="color:var(--red)">Sign-in is locked</b><div class="sm" style="margin:4px 0 8px">3 wrong codes were entered ('+dlbl(ymd(S.login_locked))+' '+tm(S.login_locked)+'). Nobody can sign in until an owner unlocks it. People who are already signed in are not affected.</div><button class="b" style="margin:0" onclick="unlockLogin()">Unlock sign-in</button></div>':'';
   $('app').innerHTML=lockCard+(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',(S.me.viewing?2:1)+(S.login_locked?1:0));
   Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
@@ -792,10 +792,29 @@ function vMe(){
 function vTeam(){
   var f=SUB.mf||'now';
   var pend=S.requests.filter(function(r){return r.status==='pending';}).length;
-  var tabs=[['now','Now'],['feed','Feed'],['hours','Hours'],['entries','Entries'],['req','Requests'+(pend?' ('+pend+')':'')],['bill','Billing']];
+  var tabs=[['now','Now'],['feed','Feed'],['hours','Hours'],['entries','Entries'],['req','Requests'+(pend?' ('+pend+')':'')],['bill','Billing'],['list','Checklist']];
   if(admin())tabs.push(['ppl','People']);
   return '<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.mf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'+
-    ({now:tNow,feed:tFeed,hours:tHours,entries:tEntries,req:tReq,bill:tBill,ppl:tPeople}[f]||tNow)();
+    ({now:tNow,feed:tFeed,hours:tHours,entries:tEntries,req:tReq,bill:tBill,list:tList,ppl:tPeople}[f]||tNow)();
+}
+/* ===== owners-only checklist ===== */
+var CHECKS=null,CHK_AT=0,CHK_BUSY=false;
+function chkSet(r){CHECKS=r||[];CHK_AT=Date.now();render();}
+function chkCall(fn,args){args=args||{};args.p_token=TOKEN;CHK_BUSY=true;return rpc(fn,args,true).then(function(r){CHK_BUSY=false;chkSet(r);}).catch(function(e){CHK_BUSY=false;CHK_AT=Date.now();if(CHECKS===null)CHECKS=[];if(e.message!=='Signed out')alert(e.message);});}
+function chkAdd(){var el=$('ck'),t=(el.value||'').trim();if(!t)return;el.value='';chkCall('owner_check_save',{p_id:null,p_text:t});}
+function chkTog(id){(CHECKS||[]).forEach(function(c){if(c.id===id)c.done=!c.done;});render();chkCall('owner_check_toggle',{p_id:id});}
+function chkEdit(id){var c=(CHECKS||[]).filter(function(x){return x.id===id;})[0];if(!c)return;
+  sheet('<h2>Checklist item</h2><textarea id="cke">'+esc(c.text)+'</textarea><div class="mut sm" style="margin:6px 0 10px">Added by '+esc(person(c.created_by).name)+' '+dlbl(ymd(c.created_at))+(c.done&&c.done_at?' · checked off by '+esc(person(c.done_by).name)+' '+dlbl(ymd(c.done_at)):'')+'</div><button class="b" onclick="chkSaveEdit(\''+id+'\')">Save</button><button class="b red" onclick="closeSheet(true);chkCall(\'owner_check_delete\',{p_id:\''+id+'\'})">Delete</button><button class="b ghost" onclick="closeSheet(true)">Cancel</button>');}
+function chkSaveEdit(id){var t=($('cke').value||'').trim();if(!t)return;closeSheet(true);chkCall('owner_check_save',{p_id:id,p_text:t});}
+function tList(){
+  if(!mgr())return '';
+  if(!CHK_BUSY&&(CHECKS===null||Date.now()-CHK_AT>30000))chkCall('owner_checks');
+  var all=CHECKS||[],open=all.filter(function(c){return !c.done;}),done=all.filter(function(c){return c.done;});
+  function row(c){return '<div class="row" style="align-items:flex-start"><div class="chk'+(c.done?' on':'')+'" onclick="chkTog(\''+c.id+'\')">'+(c.done?'✓':'')+'</div><div class="f tap" onclick="chkEdit(\''+c.id+'\')"><div style="white-space:pre-wrap;word-break:break-word'+(c.done?';text-decoration:line-through;color:var(--mut)':'')+'">'+esc(c.text)+'</div><div class="mut sm">'+(c.done&&c.done_at?'Checked off by '+esc(person(c.done_by).name)+' · '+ago(c.done_at):esc(person(c.created_by).name)+' · '+ago(c.created_at))+'</div></div></div>';}
+  return '<div class="card"><h2>Owners checklist <span>'+open.length+' open</span></h2><div class="mut sm" style="margin-bottom:10px">Private. Only Josh, Paul and Justin can see this. Employees never do.</div>'+
+    '<textarea id="ck" placeholder="Add an item" style="min-height:44px"></textarea><button class="b" onclick="chkAdd()">Add</button></div>'+
+    '<div class="card"><h2>To do</h2>'+(CHECKS===null?'<div class="mut">Loading…</div>':open.length?'<div class="list">'+open.map(row).join('')+'</div>':'<div class="mut">Nothing open</div>')+'</div>'+
+    (done.length?'<div class="card"><h2>Finished <span>'+done.length+'</span></h2><div class="list">'+done.map(row).join('')+'</div><button class="b ghost" style="margin-top:10px" onclick="chkCall(\'owner_check_clear\')">Clear finished</button></div>':'');
 }
 function attention(){
   var a=[];S.jobs.forEach(function(j){if(j.status==='archived')return;var s=billSum(j);
