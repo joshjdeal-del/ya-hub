@@ -953,12 +953,12 @@ function pauth(id){return (PAUTH||[]).filter(function(x){return x.id===id;})[0]|
 function pauthLoad(){if(PAUTH!==null||PA_BUSY||!admin())return;PA_BUSY=true;rpc('people_auth',{p_token:TOKEN},true).then(function(r){PAUTH=r||[];PA_BUSY=false;render();}).catch(function(){PA_BUSY=false;PAUTH=[];});}
 function authLine(p){pauthLoad();var a=pauth(p.id),pin=/^\d{4}$/.test(p.code||'');
   if(p.role==='helper')return 'no login';
-  var e=a.email?esc(a.email)+(a.has_pw?' · password set':' · password not set yet'):'no email yet'+(AUTH.mode==='email'?' (can\'t sign in)':'');
+  var e=a.email?esc(a.email)+(a.email2?' or '+esc(a.email2):'')+(a.has_pw?' · password set':' · password not set yet'):'no email yet'+(AUTH.mode==='email'?' (can\'t sign in)':'');
   return (AUTH.mode==='email'?'':(pin?'code '+esc(p.code)+' · ':''))+e+(a.devices?' · '+a.devices+' device'+(a.devices>1?'s':''):'');}
 function personForm(id){
   var p=id?person(id):{name:'',code:'',role:'employee',rate:'',active:true,note:''},a=id?pauth(id):{};
   sheet('<h3>'+(id?'Edit '+esc(p.name):'New person')+'</h3><label>Name</label><input id="pn" value="'+esc(p.name)+'">'+
-    (id?'<label>Email approved for sign-in (blank for none)</label><input id="pe" type="email" autocapitalize="none" value="'+esc(a.email||'')+'"><div class="mut sm" style="margin-top:4px">'+(a.email?(a.has_pw?'Password set '+dlbl(ymd(a.pw_set_at)):'Password not set yet. They get a code by email the first time they sign in.')+' · signed in on '+(a.devices||0)+' device'+(a.devices===1?'':'s')+'.':'Add their email so they can sign in.')+' Changing the email signs them out and makes them set a new password.</div>':'<div class="mut sm" style="margin-top:8px">Save first, then open the person again to add the email they sign in with.</div>')+
+    (id?'<label>Email approved for sign-in (blank for none)</label><input id="pe" type="email" autocapitalize="none" value="'+esc(a.email||'')+'"><label>Second approved email (optional, same password)</label><input id="pe2" type="email" autocapitalize="none" value="'+esc(a.email2||'')+'"><div class="mut sm" style="margin-top:4px">'+(a.email?(a.has_pw?'Password set '+dlbl(ymd(a.pw_set_at)):'Password not set yet. They get a code by email the first time they sign in.')+' · signed in on '+(a.devices||0)+' device'+(a.devices===1?'':'s')+'.':'Add their email so they can sign in.')+' Changing the first email signs them out and makes them set a new password.</div>':'<div class="mut sm" style="margin-top:8px">Save first, then open the person again to add the email they sign in with.</div>')+
     '<div class="grid2"><div><label>4-digit code (blank for a helper)</label><input id="pc" inputmode="numeric" maxlength="4" value="'+esc(p.code||'')+'"></div>'+
     '<div><label>Role</label><select id="pr">'+['employee','partner','admin','helper'].map(function(r){return '<option'+(r===p.role?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div></div>'+
     '<label>Note</label><input id="pno" value="'+esc(p.note||'')+'"><label><input type="checkbox" id="pa" style="width:auto" '+(p.active?'checked':'')+'> Active</label>'+
@@ -968,8 +968,9 @@ function personForm(id){
 }
 function personSave(id){
   var old=id?person(id):{},p={id:id||'',name:$('pn').value,code:($('pr').value==='helper'&&!/^[0-9]{4}$/.test($('pc').value)?'x'+Date.now():$('pc').value),role:$('pr').value,rate:(old.rate==null?'':old.rate),note:$('pno').value,active:$('pa').checked};
-  var em=$('pe')?$('pe').value.trim().toLowerCase():null;
+  var em=$('pe')?$('pe').value.trim().toLowerCase():null,em2=$('pe2')?$('pe2').value.trim().toLowerCase():null;
   rpc('save_person',{p_token:TOKEN,p:p}).then(function(){if(id&&em!==null&&em!==(pauth(id).email||''))return rpc('person_email',{p_token:TOKEN,p_id:id,p_email:em}).then(function(r){PAUTH=r;});})
+    .then(function(){if(id&&em2!==null&&em2!==(pauth(id).email2||''))return rpc('person_email2',{p_token:TOKEN,p_id:id,p_email:em2}).then(function(r){PAUTH=r;});})
     .then(function(){return refresh();}).then(function(){closeSheet();toast('Saved');}).catch(function(e){if(e.message!=='Signed out')alert(e.message);});
 }
 function personOut(id,reset){
