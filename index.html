@@ -272,7 +272,7 @@ function render(){
   var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
   var keep={};['mb','in','rn','ck'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
   var lockCard=S.login_locked?'<div class="card" style="border-color:var(--red);background:#fdecec"><b style="color:var(--red)">Sign-in is locked</b><div class="sm" style="margin:4px 0 8px">3 wrong codes were entered ('+dlbl(ymd(S.login_locked))+' '+tm(S.login_locked)+'). Nobody can sign in until an owner unlocks it. People who are already signed in are not affected.</div><button class="b" style="margin:0" onclick="unlockLogin()">Unlock sign-in</button></div>':'';
-  $('app').innerHTML=lockCard+(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',(S.me.viewing?2:1)+(S.login_locked?1:0));
+  var payB=payCard(true);$('app').innerHTML=lockCard+payB+(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',(S.me.viewing?2:1)+(S.login_locked?1:0)+(payB?1:0));
   Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
   if(foc&&keep[foc]!==undefined&&$(foc)){$(foc).focus();}
   if(TAB==='msgs'&&THREAD){var b=$('msgBox');if(b)b.scrollIntoView(false);}
@@ -843,6 +843,27 @@ function tList(){
     '<div class="card"><h2>To do</h2>'+(CHECKS===null?'<div class="mut">Loading…</div>':open.length?'<div class="list">'+open.map(row).join('')+'</div>':'<div class="mut">Nothing open</div>')+'</div>'+
     (done.length?'<div class="card"><h2>Finished <span>'+done.length+'</span></h2><div class="list">'+done.map(row).join('')+'</div><button class="b ghost" style="margin-top:10px" onclick="chkCall(\'owner_check_clear\')">Clear finished</button></div>':'');
 }
+/* ===== payroll reminder (owners only) ===== */
+function payInfo(){
+  var t=today(),cur=periodOf(t),prevStart=addDays(cur.start,-14),pd=S.settings.payroll_done,done=(pd&&pd.end)||(typeof pd==='string'?pd:'')||'';
+  var st=/^\d{4}-\d\d-\d\d$/.test(done)?addDays(done,1):prevStart;
+  if(st<prevStart)st=(t<=addDays(cur.start,6))?prevStart:cur.start;
+  var p={start:st,end:addDays(st,13)};
+  return {p:p,due:addDays(p.end,3),pay:addDays(p.end,5),ended:t>p.end,toEnd:diffDays(t,p.end),toDue:diffDays(t,addDays(p.end,3)),done:done};
+}
+function days(n){return n===0?'today':n===1?'tomorrow':'in '+n+' days';}
+function payCard(banner){
+  if(!mgr())return '';
+  var i=payInfo();if(banner&&!i.ended)return '';if(!banner&&i.ended)return '';
+  var late=i.toDue<0,hot=i.ended&&i.toDue<=0,col=hot?'red':'amb';
+  var head=i.ended?(late?'Gusto payroll is past due':i.toDue===0?'Gusto payroll is due today by 6 PM':'Time to run Gusto payroll'):'Payroll';
+  var body='Pay period '+dlbl(i.p.start)+' – '+dlbl(i.p.end)+(i.ended?' has ended.':' ends '+days(i.toEnd)+'.')+' Run Gusto by '+dlbl(i.due)+' at 6 PM'+(late?' (that was '+(-i.toDue)+' day'+(i.toDue===-1?'':'s')+' ago)':i.ended&&i.toDue>0?' ('+days(i.toDue)+')':'')+'. Payday '+dlbl(i.pay)+'.';
+  return '<div class="card"'+(i.ended?' style="border-color:var(--'+col+');background:'+(hot?'#fdecec':'var(--amb2)')+'"':'')+'><b'+(i.ended?' style="color:var(--'+col+')"':'')+'>'+head+'</b><div class="sm" style="margin:4px 0 8px">'+body+' Check the checking balance first; the sweep doesn\'t cover Gusto.</div>'+
+    '<button class="b'+(i.ended?'':' alt')+'" style="margin:0" onclick="payDone(\''+i.p.end+'\')">Payroll for this period is done</button>'+
+    (i.done?'<div class="mut sm" style="margin-top:8px">Last marked done: period ending '+dlbl(i.done)+' · <a href="#" onclick="payDone(\''+addDays(i.done,-14)+'\',true);return false">undo</a></div>':'')+
+    '<div class="mut sm" style="margin-top:4px">Owners only.</div></div>';
+}
+function payDone(end,undo){act('save_setting',{p_token:TOKEN,p_key:'payroll_done',p_value:{end:end}},function(){toast(undo?'Put back':'Marked done. Showing the next pay period.');});}
 function attention(){
   var a=[];S.jobs.forEach(function(j){if(j.status==='archived')return;var s=billSum(j);
     if(j.status==='done'&&s.ready>0)a.push({j:j.id,cls:'',t:'Finished: '+money(s.ready)+' ready to bill'});
@@ -865,7 +886,7 @@ function tFeed(){
 function staff(){return S.people.filter(function(p){return p.active&&p.role==='employee';});}
 function tNow(){
   var on=S.entries.filter(function(e){return !e.end_at;});
-  var h='<div class="card"><h2>On the clock</h2>'+(on.length?'<div class="list">'+on.map(function(e){return '<div><div class="row"><div class="f"><b>'+esc(person(e.person_id).name)+'</b> · '+esc(jobById(e.job_id))+'</div>'+locTag(e.in_lat,e.in_lng,e.in_acc)+'</div>'+
+  var h=payCard(false)+'<div class="card"><h2>On the clock</h2>'+(on.length?'<div class="list">'+on.map(function(e){return '<div><div class="row"><div class="f"><b>'+esc(person(e.person_id).name)+'</b> · '+esc(jobById(e.job_id))+'</div>'+locTag(e.in_lat,e.in_lng,e.in_acc)+'</div>'+
     '<div class="mut sm">since '+tm(e.start_at)+(ymd(e.start_at)!==today()?' ('+dlbl(ymd(e.start_at))+')':'')+' · '+hm(hrs(e.start_at))+(e.note?' · '+esc(e.note):'')+'</div>'+(hrs(e.start_at)>12?'<div class="flag">⚠ Running over 12 hours</div>':'')+
     '<button class="s" style="margin-top:6px" onclick="entryForm(\''+e.id+'\')">Edit / clock out</button></div>';}).join('')+'</div>':'<div class="mut">Nobody is clocked in</div>')+'</div>';
   staff().forEach(function(p){var tk=today();var es=S.entries.filter(function(e){return e.person_id===p.id&&ymd(e.start_at)===tk;});

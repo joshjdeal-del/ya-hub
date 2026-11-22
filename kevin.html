@@ -67,7 +67,7 @@ button{font:inherit;cursor:pointer}
 <div id="sheet" onclick="if(event.target===this)closeSheet()"><div id="sheetIn"></div></div>
 <div id="toast"></div>
 <script>
-var VERSION = 10;
+var VERSION = 11;
 var SB = 'https://ozjlcmyheosczikxnfxk.supabase.co';
 var KEY = 'sb_publishable_qFb_Fu730Wqx8mtmtA_Yyg_rNzCuY3h';
 var TOKEN = '', S = null, FILT = 'all', SEL = {}, TICK = null, LOGN = 10;
@@ -139,7 +139,7 @@ function key(k){
   if(CODE.length===4){var c=CODE;CODE='';
     rpc('crew_login',{p_code:c}).then(function(r){if(!r.ok){padView(r.why);return;}TOKEN=r.token;store('kvToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
 }
-function signOut(silent){PREVIEW=false;if(TOKEN&&!silent)rpc('crew_logout',{p_token:TOKEN}).catch(function(){});TOKEN='';store('kvToken',null);clearInterval(TICK);closeSheet();padView();}
+function signOut(silent){PREVIEW=false;KPAY=null;if(TOKEN&&!silent)rpc('crew_logout',{p_token:TOKEN}).catch(function(){});TOKEN='';store('kvToken',null);clearInterval(TICK);closeSheet();padView();}
 function refresh(){return rpc('crew_state',{p_token:TOKEN}).then(function(st){S=st;render();});}
 function boot(){
   refresh().then(function(){clearInterval(boot.t);boot.t=setInterval(function(){if(!document.hidden&&TOKEN&&$('sheet').style.display!=='flex'){var ae=document.activeElement;if(ae&&/TEXTAREA|INPUT|SELECT/.test(ae.tagName))return;refresh().catch(function(){});}},30000);})
@@ -308,10 +308,43 @@ function place(lat,lng){
   var best=null;(S.places||[]).forEach(function(p){var R=3958.8,x=(lng-p.lng)*Math.PI/180*Math.cos((lat+p.lat)*Math.PI/360),y=(lat-p.lat)*Math.PI/180,m=Math.sqrt(x*x+y*y)*R;if(!best||m<best.m)best={n:p.name,m:m};});
   return best?(best.m<1?'at '+esc(best.n):f2(best.m)+' mi from '+esc(best.n)):'location saved';
 }
+/* ===== payroll reminder (owner only): OnPay, twice a month ===== */
+var KPAY=null,KPAY_BUSY=false;
+function kAdd(s,n){var d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return ymd(d);}
+function kNth(y,m,wd,n){var d=new Date(y,m,1,12),c=0;while(true){if(d.getDay()===wd&&++c===n)return ymd(d);d.setDate(d.getDate()+1);}}
+function kLast(y,m,wd){var d=new Date(y,m+1,0,12);while(d.getDay()!==wd)d.setDate(d.getDate()-1);return ymd(d);}
+function kObs(y,m,day){var d=new Date(y,m,day,12);if(d.getDay()===6)d.setDate(d.getDate()-1);if(d.getDay()===0)d.setDate(d.getDate()+1);return ymd(d);}
+function kHol(y){return [kObs(y,0,1),kNth(y,0,1,3),kNth(y,1,1,3),kLast(y,4,1),kObs(y,5,19),kObs(y,6,4),kNth(y,8,1,1),kNth(y,9,1,2),kObs(y,10,11),kNth(y,10,4,4),kObs(y,11,25),kObs(y+1,0,1)];}
+function kBiz(s){var d=new Date(s+'T12:00:00');return d.getDay()!==0&&d.getDay()!==6&&kHol(d.getFullYear()).indexOf(s)<0;}
+function kBack(s,n){while(!kBiz(s))s=kAdd(s,-1);while(n>0){s=kAdd(s,-1);if(kBiz(s))n--;}return s;}
+function kPer(end){var d=new Date(end+'T12:00:00'),y=d.getFullYear(),m=d.getMonth();
+  if(d.getDate()===10)return {start:ymd(new Date(y,m-1,26,12)),end:end,pay:ymd(new Date(y,m,15,12))};
+  return {start:ymd(new Date(y,m,11,12)),end:end,pay:ymd(new Date(y,m+1,0,12))};}
+function kNextEnd(end){var d=new Date(end+'T12:00:00');return d.getDate()===10?ymd(new Date(d.getFullYear(),d.getMonth(),25,12)):ymd(new Date(d.getFullYear(),d.getMonth()+1,10,12));}
+function kPrevEnd(end){var d=new Date(end+'T12:00:00');return d.getDate()===25?ymd(new Date(d.getFullYear(),d.getMonth(),10,12)):ymd(new Date(d.getFullYear(),d.getMonth()-1,25,12));}
+function kDays(n){return n===0?'today':n===1?'tomorrow':'in '+n+' days';}
+function kDiff(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);}
+function payLoad(){if(KPAY!==null||KPAY_BUSY||!owner())return;KPAY_BUSY=true;rpc('crew_pay',{p_token:TOKEN,p_done:null}).then(function(r){KPAY=(r&&r.done)||'';KPAY_BUSY=false;render();}).catch(function(){KPAY_BUSY=false;KPAY='';});}
+function payMark(end,undo){rpc('crew_pay',{p_token:TOKEN,p_done:end}).then(function(r){KPAY=(r&&r.done)||'';render();toast(undo?'Put back':'Marked done. Showing the next pay period.');}).catch(function(e){if(e.message!=='Signed out')alert(e.message);});}
+function payCard(){
+  if(!owner())return '';payLoad();if(KPAY===null)return '';
+  var t=ymd(new Date()),d=new Date(t+'T12:00:00'),day=d.getDate(),y=d.getFullYear(),m=d.getMonth();
+  var curEnd=day<=10?ymd(new Date(y,m,10,12)):day<=25?ymd(new Date(y,m,25,12)):ymd(new Date(y,m+1,10,12));
+  var end=/^\d{4}-\d\d-\d\d$/.test(KPAY)?kNextEnd(KPAY):kPrevEnd(curEnd);
+  if(end<kPrevEnd(curEnd))end=(kDiff(kPer(kPrevEnd(curEnd)).pay,t)<=5)?kPrevEnd(curEnd):curEnd;
+  var p=kPer(end),payOn=kBack(p.pay,0),due=kBack(payOn,2),ended=t>p.end,toDue=kDiff(t,due),late=toDue<0,hot=toDue<=0;
+  var un=0;done().forEach(function(e){var s=ymd(e.start_at);if(s>=p.start&&s<=p.end&&!e.paid_at)un+=hrs(e);});
+  var head=late?'OnPay payroll is past due':toDue===0?'OnPay payroll is due today':ended||toDue<=2?'Time to run OnPay payroll':'Payroll';
+  var warn=ended||toDue<=2,col=hot?'red':'amb';
+  return '<div class="card"'+(warn?' style="border-color:var(--'+col+');background:'+(hot?'#fdecec':'var(--amb2)')+'"':'')+'><b'+(warn?' style="color:var(--'+col+')"':'')+'>'+head+'</b><div class="sm" style="margin:4px 0 8px">'+esc(S.who)+'\'s pay period '+dlbl(p.start)+' – '+dlbl(p.end)+(ended?' has ended.':' ends '+kDays(kDiff(t,p.end))+'.')+' Run OnPay by about '+dlbl(due)+(late?' (that was '+(-toDue)+' day'+(toDue===-1?'':'s')+' ago)':' ('+kDays(toDue)+')')+' for the '+dlbl(payOn)+' payday. '+f2(un)+' h in this period not marked paid yet.</div>'+
+    '<button class="b'+(warn?'':' alt')+'" style="margin:0" onclick="payMark(\''+p.end+'\')">Payroll for this period is done</button>'+
+    (KPAY?'<div class="mut sm" style="margin-top:8px">Last marked done: period ending '+dlbl(KPAY)+' · <a href="#" onclick="payMark(\''+kPrevEnd(KPAY)+'\',true);return false">undo</a></div>':'')+
+    '<div class="mut sm" style="margin-top:4px">Only you see this. The run-by date assumes OnPay needs 2 business days; OnPay shows the exact cutoff.</div></div>';
+}
 function vOwner(){
   var r=running(),all=done(),h='';
   h+='<div class="card"><h2>Right now</h2>'+(r?'<div><b style="color:var(--g)">On the clock</b> since '+tm(r.start_at)+' · '+hm(hrs(r))+'</div><div>'+esc(lbl(r))+'</div>'+(r.note?'<div class="mut sm" style="white-space:pre-wrap">'+esc(r.note)+'</div>':'')+(r.in_lat?'<div class="mut sm">Clocked in '+place(r.in_lat,r.in_lng)+'</div>':''):'<div class="mut">Not clocked in'+(all.length?' · last out '+dlbl(ymd(all[0].end_at))+' '+tm(all[0].end_at):'')+'</div>')+'</div>';
-  h='<button class="b alt" style="margin:0 0 12px" onclick="setPreview(true)">See what '+esc(S.who)+' sees</button>'+reqCard()+h+totalsCard();
+  h='<button class="b alt" style="margin:0 0 12px" onclick="setPreview(true)">See what '+esc(S.who)+' sees</button>'+payCard()+reqCard()+h+totalsCard();
   h+=trackCard();
   var owe=all.filter(function(e){return e.reimburse&&!e.reimbursed_at;});
   var list=shown();
