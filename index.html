@@ -183,8 +183,35 @@ function locTag(lat,lng,acc){
 }
 
 /* ===== sign in ===== */
-var typed='';
+var AUTH={mode:null,step:'email',email:load('yaEmail')||'',to:''};
 function padView(msg){
+  if(AUTH.mode===null){$('who').innerHTML='';$('nav').className='hide';$('app').innerHTML='<div class="card" style="text-align:center;margin-top:20px"><h3>Yield Advantage</h3><div class="mut">Loading…</div></div>';
+    rpc('auth_info',{},true).then(function(r){AUTH.mode=(r&&r.mode)||'code';padView(msg);}).catch(function(){AUTH.mode='code';padView(msg);});return;}
+  if(AUTH.mode==='email')return emailView(msg&&/enter your code/.test(msg)?'Signed out. Sign in again.':msg);
+  pinView(msg);
+}
+function authErr(m){var e=$('aerr');if(e)e.textContent=m||'';}
+function authStep(s,msg){AUTH.step=s;emailView(msg);}
+function emailView(msg){
+  $('who').innerHTML='';$('nav').className='hide';
+  var h='<div class="card" style="margin-top:20px"><h3 style="text-align:center">Yield Advantage</h3><div class="mut sm" style="text-align:center;margin:-2px 0 6px">Winter to spring hours: 8 AM to 5 PM</div>',em=esc(AUTH.email);
+  if(AUTH.step==='password')h+='<form onsubmit="authLogin();return false"><div class="mut sm" style="text-align:center">'+em+' · <a href="#" onclick="authStep(\'email\');return false">change</a></div><input type="email" autocomplete="username" value="'+em+'" style="display:none"><label>Password</label><input id="ap" type="password" autocomplete="current-password"><div class="err" id="aerr"></div><button class="b" type="submit">Sign in</button></form><button class="b ghost" onclick="authForgot()">Forgot password</button>';
+  else if(AUTH.step==='code')h+='<form onsubmit="authSet();return false"><div class="mut sm" style="text-align:center">We emailed a 6-digit code to '+esc(AUTH.to||AUTH.email)+'. It works for 15 minutes.</div><input type="email" autocomplete="username" value="'+em+'" style="display:none"><label>Code from the email</label><input id="ac" inputmode="numeric" autocomplete="one-time-code" maxlength="6"><label>Choose a password (8 or more characters)</label><input id="an" type="password" autocomplete="new-password"><label>Type it again</label><input id="an2" type="password" autocomplete="new-password"><div class="err" id="aerr"></div><button class="b" type="submit">Set password and sign in</button></form><button class="b ghost" onclick="authForgot()">Send a new code</button><button class="b ghost" onclick="authStep(\'email\')">Use a different email</button>';
+  else h+='<form onsubmit="authStart();return false"><label>Email</label><input id="ae" type="email" autocomplete="username" autocapitalize="none" value="'+em+'"><div class="err" id="aerr"></div><button class="b" type="submit">Continue</button></form>';
+  $('app').innerHTML=h+'<div class="mut sm" style="text-align:center;margin-top:10px">This device stays signed in for 30 days.</div></div>';
+  authErr(msg);var f=$(AUTH.step==='password'?'ap':AUTH.step==='code'?'ac':'ae');if(f&&!(AUTH.step==='email'&&AUTH.email))try{f.focus();}catch(e){}
+}
+function authIn(r){TOKEN=r.token;store('yaToken',TOKEN);store('yaEmail',AUTH.email);AUTH.step='password';boot();}
+function authStart(){var e=($('ae').value||'').trim().toLowerCase();if(!e)return authErr('Type your email');AUTH.email=e;
+  rpc('auth_start',{p_email:e}).then(function(r){if(!r.ok)return authErr(r.why);AUTH.to=r.to||'';authStep(r.step);}).catch(function(e){authErr(e.message);});}
+function authLogin(){var pw=$('ap').value;if(!pw)return authErr('Type your password');
+  rpc('auth_login',{p_email:AUTH.email,p_password:pw}).then(function(r){if(r.ok)return authIn(r);if(r.step==='code')return authForgot();authErr(r.why);$('ap').value='';}).catch(function(e){authErr(e.message);});}
+function authForgot(){rpc('auth_send_code',{p_email:AUTH.email}).then(function(r){if(!r.ok)return authErr(r.why);AUTH.to=r.to||'';authStep('code');}).catch(function(e){authErr(e.message);});}
+function authSet(){var c=($('ac').value||'').replace(/\D/g,''),a=$('an').value,b=$('an2').value;
+  if(c.length!==6)return authErr('Enter the 6-digit code from the email');if(a.length<8)return authErr('Use at least 8 characters for the password');if(a!==b)return authErr('The two passwords don\'t match');
+  rpc('auth_set_password',{p_email:AUTH.email,p_code:c,p_password:a}).then(function(r){if(r.ok)return authIn(r);authErr(r.why);}).catch(function(e){authErr(e.message);});}
+var typed='';
+function pinView(msg){
   $('who').innerHTML='';$('nav').className='hide';
   var k=[1,2,3,4,5,6,7,8,9,'',0,'⌫'];
   $('app').innerHTML='<div class="card" style="text-align:center;margin-top:20px"><h3>Yield Advantage</h3><div class="mut sm" style="margin:-2px 0 6px">Winter to spring hours: 8 AM to 5 PM</div><div class="mut">Enter your 4-digit code</div>'+
@@ -196,9 +223,9 @@ function key(x){
   if(x==='⌫'){typed=typed.slice(0,-1);padView();return;}
   if(typed.length>=4)return;typed+=x;padView();
   if(typed.length===4){var c=typed;typed='';
-    rpc('login',{p_code:c}).then(function(r){if(!r.ok){padView(r.why);return;}TOKEN=r.token;store('yaToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
+    rpc('login',{p_code:c}).then(function(r){if(!r.ok){if(r.email)AUTH.mode='email';padView(r.why);return;}TOKEN=r.token;store('yaToken',TOKEN);boot();}).catch(function(e){padView(e.message);});}
 }
-function signOut(silent){if(TOKEN&&!silent)rpc('logout',{p_token:TOKEN},true).catch(function(){});TOKEN='';S=null;CHECKS=null;store('yaToken',null);clearInterval(boot.t);padView(silent?'Signed out — enter your code':'');}
+function signOut(silent){if(TOKEN&&!silent)rpc('logout',{p_token:TOKEN},true).catch(function(){});TOKEN='';S=null;CHECKS=null;PAUTH=null;AUTH.mode=null;store('yaToken',null);clearInterval(boot.t);padView(silent?'Signed out — enter your code':'');}
 
 /* ===== data ===== */
 function range(){
@@ -910,7 +937,7 @@ function tBill(){
 function backupNow(){rpc('backup_now',{p_token:TOKEN}).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(b,null,1)],{type:'application/json'}));a.download='YA Hub backup '+today()+'.json';document.body.appendChild(a);a.click();a.remove();toast('Backup downloaded');}).catch(function(e){alert(e.message);});}
 function tPeople(){
   var shop=S.settings.shop;
-  return '<button class="b" style="margin:0 0 12px" onclick="personForm(\'\')">+ Add person</button><div class="card"><div class="list">'+S.people.map(function(p){return '<div class="tap" onclick="personForm(\''+p.id+'\')"><div class="row"><div class="f"><b>'+esc(p.name)+'</b></div><span class="pill '+(p.active?'':'gray')+'">'+p.role+'</span></div><div class="mut sm">'+(/^\d{4}$/.test(p.code||'')?'code '+esc(p.code):'no login')+(p.note?' · '+esc(p.note):'')+'</div></div>';}).join('')+'</div></div>'+
+  return '<button class="b" style="margin:0 0 12px" onclick="personForm(\'\')">+ Add person</button><div class="card"><div class="list">'+S.people.map(function(p){return '<div class="tap" onclick="personForm(\''+p.id+'\')"><div class="row"><div class="f"><b>'+esc(p.name)+'</b></div><span class="pill '+(p.active?'':'gray')+'">'+p.role+'</span></div><div class="mut sm">'+authLine(p)+(p.note?' · '+esc(p.note):'')+'</div></div>';}).join('')+'</div></div>'+
     '<div class="mut sm" style="margin-bottom:12px">Owners (admin and partners): everything, including prices, billing and the Feed; their time is for billing only, never payroll. Employees: clock, tasks, messages, jobs, parts check-offs and change orders, but no prices, no billing and no one else\'s payroll hours; time fixes go through a request. Helpers have no login; an owner logs their time by hand and it never counts as payroll. Use "Employee view" at the top to see exactly what an employee sees.</div>'+
     '<div class="card"><h2>Backup</h2><div class="mut sm">Saves a file with every job, quote, change order, time entry, task and message.</div><button class="b alt" onclick="backupNow()">Download a backup file</button></div>'+
     '<div class="card"><h2>Locations</h2><div class="mut sm">A clock-in within '+((+S.settings.geofence_m||1600)/1609.34).toFixed(1)+' mi of one of these shows as "at" that place. Anywhere else shows the miles from the nearest one.</div>'+
@@ -921,12 +948,33 @@ function tPeople(){
 function addPlace(){var n=prompt('Name this location (for example: YA shop)');if(!n)return;busy(true);where().then(function(l){if(l.lat==null){busy(false);return alert('Could not get your location. Allow location for this site and try again.');}
   var ps=places().filter(function(p){return p.name!==n;});ps.push({name:n,lat:l.lat,lng:l.lng});return act('save_setting',{p_token:TOKEN,p_key:'places',p_value:ps},function(){toast('Location saved');});});}
 function delPlace(i){var ps=places().slice();if(!confirm('Remove '+ps[i].name+'?'))return;ps.splice(i,1);act('save_setting',{p_token:TOKEN,p_key:'places',p_value:ps},function(){toast('Removed');});}
+var PAUTH=null,PA_BUSY=false;
+function pauth(id){return (PAUTH||[]).filter(function(x){return x.id===id;})[0]||{};}
+function pauthLoad(){if(PAUTH!==null||PA_BUSY||!admin())return;PA_BUSY=true;rpc('people_auth',{p_token:TOKEN},true).then(function(r){PAUTH=r||[];PA_BUSY=false;render();}).catch(function(){PA_BUSY=false;PAUTH=[];});}
+function authLine(p){pauthLoad();var a=pauth(p.id),pin=/^\d{4}$/.test(p.code||'');
+  if(p.role==='helper')return 'no login';
+  var e=a.email?esc(a.email)+(a.has_pw?' · password set':' · password not set yet'):'no email yet'+(AUTH.mode==='email'?' (can\'t sign in)':'');
+  return (AUTH.mode==='email'?'':(pin?'code '+esc(p.code)+' · ':''))+e+(a.devices?' · '+a.devices+' device'+(a.devices>1?'s':''):'');}
 function personForm(id){
-  var p=id?person(id):{name:'',code:'',role:'employee',rate:'',active:true,note:''};
-  sheet('<h3>'+(id?'Edit '+esc(p.name):'New person')+'</h3><label>Name</label><input id="pn" value="'+esc(p.name)+'"><div class="grid2"><div><label>4-digit code (blank for a helper)</label><input id="pc" inputmode="numeric" maxlength="4" value="'+esc(p.code||'')+'"></div>'+
+  var p=id?person(id):{name:'',code:'',role:'employee',rate:'',active:true,note:''},a=id?pauth(id):{};
+  sheet('<h3>'+(id?'Edit '+esc(p.name):'New person')+'</h3><label>Name</label><input id="pn" value="'+esc(p.name)+'">'+
+    (id?'<label>Email approved for sign-in (blank for none)</label><input id="pe" type="email" autocapitalize="none" value="'+esc(a.email||'')+'"><div class="mut sm" style="margin-top:4px">'+(a.email?(a.has_pw?'Password set '+dlbl(ymd(a.pw_set_at)):'Password not set yet. They get a code by email the first time they sign in.')+' · signed in on '+(a.devices||0)+' device'+(a.devices===1?'':'s')+'.':'Add their email so they can sign in.')+' Changing the email signs them out and makes them set a new password.</div>':'<div class="mut sm" style="margin-top:8px">Save first, then open the person again to add the email they sign in with.</div>')+
+    '<div class="grid2"><div><label>4-digit code (blank for a helper)</label><input id="pc" inputmode="numeric" maxlength="4" value="'+esc(p.code||'')+'"></div>'+
     '<div><label>Role</label><select id="pr">'+['employee','partner','admin','helper'].map(function(r){return '<option'+(r===p.role?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div></div>'+
     '<label>Note</label><input id="pno" value="'+esc(p.note||'')+'"><label><input type="checkbox" id="pa" style="width:auto" '+(p.active?'checked':'')+'> Active</label>'+
-    '<button class="b" onclick="act(\'save_person\',{p_token:TOKEN,p:{id:\''+(id||'')+'\',name:$(\'pn\').value,code:($(\'pr\').value===\'helper\'&&!/^[0-9]{4}$/.test($(\'pc\').value)?\'x\'+Date.now():$(\'pc\').value),role:$(\'pr\').value,rate:\''+(p.rate==null?'':p.rate)+'\',note:$(\'pno\').value,active:$(\'pa\').checked}},function(){closeSheet();toast(\'Saved\');})">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button>');
+    '<button class="b" onclick="personSave(\''+(id||'')+'\')">Save</button>'+
+    (id&&a.email?'<button class="b alt" onclick="personOut(\''+id+'\',false)">Sign out all their devices</button><button class="b alt" onclick="personOut(\''+id+'\',true)">Reset their password</button>':'')+
+    '<button class="b ghost" onclick="closeSheet()">Cancel</button>');
+}
+function personSave(id){
+  var old=id?person(id):{},p={id:id||'',name:$('pn').value,code:($('pr').value==='helper'&&!/^[0-9]{4}$/.test($('pc').value)?'x'+Date.now():$('pc').value),role:$('pr').value,rate:(old.rate==null?'':old.rate),note:$('pno').value,active:$('pa').checked};
+  var em=$('pe')?$('pe').value.trim().toLowerCase():null;
+  rpc('save_person',{p_token:TOKEN,p:p}).then(function(){if(id&&em!==null&&em!==(pauth(id).email||''))return rpc('person_email',{p_token:TOKEN,p_id:id,p_email:em}).then(function(r){PAUTH=r;});})
+    .then(function(){return refresh();}).then(function(){closeSheet();toast('Saved');}).catch(function(e){if(e.message!=='Signed out')alert(e.message);});
+}
+function personOut(id,reset){
+  if(!confirm(reset?'Reset '+person(id).name+'\'s password? They are signed out everywhere and get a new code by email the next time they sign in.':'Sign '+person(id).name+' out of every device? They sign back in with their email and password.'))return;
+  rpc('person_signout',{p_token:TOKEN,p_id:id,p_reset:reset}).then(function(r){PAUTH=r;closeSheet();render();toast(reset?'Password reset':'Signed out everywhere');}).catch(function(e){if(e.message!=='Signed out')alert(e.message);});
 }
 function csvPeriod(){
   var per=PER||periodOf(today());var rows=[['Person','Payroll','Date','Start','End','Hours','Customer','Job','Billable','Note']];
