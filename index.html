@@ -327,7 +327,7 @@ function vClock(){
       '<label>What are you doing (optional)</label><textarea id="in"></textarea>'+
       '<button class="b" onclick="doIn()">Clock in</button><div class="mut sm" style="margin-top:6px">Your location is saved when you clock in and out.</div></div>';
   }
-  if(mgr())h+='<div class="card"><h2>Log time by hand</h2><div class="mut sm">For your own hours, or for a helper with no login (like Kevin). This time is for billing and job hours only and never counts as payroll.</div><button class="b alt" onclick="logForm()">Log hours</button></div>';
+  if(mgr())h+='<div class="card"><h2>Log time by hand</h2><div class="mut sm">For your own hours, another owner\'s, or a helper with no login (like Kevin). This time is for billing and job hours only and never counts as payroll.</div><button class="b alt" onclick="logForm()">Log hours</button></div>';
   var tk=today(),mine=S.entries.filter(function(e){return e.person_id===S.me.id&&ymd(e.start_at)===tk;}).reverse();
   var tot=mine.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);
   var cp0=periodOf(today()),m0=summarize(S.me.id,cp0),wk0=m0.weeks[diffDays(cp0.start,today())>=7?1:0];
@@ -408,7 +408,7 @@ function startOn(jobId){SUB.pickJob=jobId;var r=running();
     where().then(function(l){return act('switch_job',{p_token:TOKEN,p_job:jobId,p_note:'',p_lat:l.lat,p_lng:l.lng,p_acc:l.acc},function(){closeSheet();toast('Switched');go('clock');});});}
   else{closeSheet();go('clock');}}
 function logForm(){
-  var who=[S.me].concat(S.people.filter(function(p){return p.active&&p.role==='helper';}));
+  var who=[S.me].concat(S.people.filter(function(p){return p.active&&p.id!==S.me.id&&(p.role==='partner'||p.role==='admin');}),S.people.filter(function(p){return p.active&&p.role==='helper';}));
   sheet('<h3>Log hours</h3><label>Who</label><select id="lw" onchange="logWho()">'+who.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+(p.id===S.me.id?' (me)':'')+'</option>';}).join('')+'</select><label>Job</label><select id="lj">'+jobOptions('')+'</select>'+
     '<div class="grid2"><div><label>Date</label><input type="date" id="ld" value="'+today()+'"></div><div><label>Hours</label><input type="number" id="lhh" step="0.25" min="0.25" max="24" value="1"></div></div>'+
     '<label>What was done</label><textarea id="lno"></textarea><label><input type="checkbox" id="lb" style="width:auto" checked> Billable</label><div id="lbn" class="mut sm" style="display:none">Helper hours are for tracking how long a job takes. Tick Billable only if this time should be billed.</div>'+
