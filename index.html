@@ -266,13 +266,13 @@ function render(){
   var tabs=[['clock','Clock'],['tasks','Tasks'],['jobs','Jobs'],['msgs','Messages']];
   tabs.push(mgr()?['team','Team']:['me','My hours']);
   var un=unreadCount(),pend=mgr()?S.requests.filter(function(r){return r.status==='pending';}).length:0;
-  $('nav').className='';
-  $('nav').innerHTML=tabs.map(function(t){var dot=(t[0]==='msgs'&&un)?'<span class="dot">'+un+'</span>':(t[0]==='team'&&pend)?'<span class="dot">'+pend+'</span>':'';
+  $('nav').className='';var tdue=tDue().length;
+  $('nav').innerHTML=tabs.map(function(t){var dot=(t[0]==='tasks'&&tdue)?'<span class="dot">'+tdue+'</span>':(t[0]==='msgs'&&un)?'<span class="dot">'+un+'</span>':(t[0]==='team'&&pend)?'<span class="dot">'+pend+'</span>':'';
     return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+ICON[t[0]]+t[1]+dot+'</button>';}).join('');
   var f={clock:vClock,tasks:vTasks,jobs:vJobs,msgs:vMsgs,team:vTeam,me:vMe}[TAB]||vClock;
   var keep={};['mb','in','rn','ck'].forEach(function(k){var el=$(k);if(el)keep[k]=el.value;});var foc=document.activeElement&&document.activeElement.id;
   var lockCard=S.login_locked?'<div class="card" style="border-color:var(--red);background:#fdecec"><b style="color:var(--red)">Sign-in is locked</b><div class="sm" style="margin:4px 0 8px">3 wrong codes were entered ('+dlbl(ymd(S.login_locked))+' '+tm(S.login_locked)+'). Nobody can sign in until an owner unlocks it. People who are already signed in are not affected.</div><button class="b" style="margin:0" onclick="unlockLogin()">Unlock sign-in</button></div>':'';
-  var payB=payCard(true);$('app').innerHTML=lockCard+payB+(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',(S.me.viewing?2:1)+(S.login_locked?1:0)+(payB?1:0));
+  var payB=payCard(true);$('app').innerHTML=lockCard+payB+(S.me.viewing?'<div class="card" style="border-color:var(--amb);background:var(--amb2)"><b>Employee view</b><div class="sm">This is what an employee sees: no prices, no billing, no other people\'s hours.</div><button class="b alt" style="margin-top:8px" onclick="setView(\'\')">Back to owner view</button></div>':'')+(TAB==='clock'?taskBanner():'')+f();if(TAB==='jobs'&&SUB.jf==='bill')collapse($('app'),'bill',(S.me.viewing?2:1)+(S.login_locked?1:0)+(payB?1:0));
   Object.keys(keep).forEach(function(k){var el=$(k);if(el&&keep[k]&&!(k==='rn'&&!keep[k]))el.value=keep[k];});
   if(foc&&keep[foc]!==undefined&&$(foc)){$(foc).focus();}
   if(TAB==='msgs'&&THREAD){var b=$('msgBox');if(b)b.scrollIntoView(false);}
@@ -332,7 +332,7 @@ function vClock(){
   var tot=mine.reduce(function(a,e){return a+hrs(e.start_at,e.end_at);},0);
   var cp0=periodOf(today()),m0=summarize(S.me.id,cp0),wk0=m0.weeks[diffDays(cp0.start,today())>=7?1:0];
   h+='<div class="card"><h2>Today <span>'+hm(tot)+'</span></h2><div class="mut sm" style="margin-bottom:6px">This week '+f2(wk0.hours)+' h · pay period '+f2(m0.worked)+' h</div>'+(mine.length?'<div class="list">'+mine.map(entryRow).join('')+'</div>':'<div class="mut">Nothing yet today</div>')+'</div>';
-  var myTasks=S.tasks.filter(function(t){return t.status!=='done'&&(t.owner_id===S.me.id);}).slice(0,5);
+  var dueIds=tDue().map(function(t){return t.id;}),myTasks=S.tasks.filter(function(t){return t.status!=='done'&&tMine(t)&&dueIds.indexOf(t.id)<0;}).slice(0,5);
   if(myTasks.length)h+='<div class="card"><h2>My tasks <button class="s" onclick="go(\'tasks\')">All</button></h2><div class="list">'+myTasks.map(taskRow).join('')+'</div></div>';
   h+='<div class="card"><h2>Time off & fixes</h2><div class="grid2"><button class="b alt" style="margin:0" onclick="leaveForm()">Time off / sick</button><button class="b alt" style="margin:0" onclick="fixForm(\'\')">Add missed time</button></div>'+
      '<div class="mut sm" style="margin-top:8px">Tap an entry to describe it or break it into parts. Time fixes are approved before they count.</div>'+myRequests()+'</div>';
@@ -436,9 +436,21 @@ function sendFix(id){var d=$('fd').value,s=localIso(d,$('fs').value),e=localIso(
 
 var _jobView=jobView;jobView=function(id){var same=JOBCTX===id,sc=same?(SHEETKIND==='job'&&sheetUp()?$('sheetIn').scrollTop:JOBSCROLL):0;_jobView(id);if(!sheetUp())return;JOBCTX=id;SHEETKIND='job';JOBSCROLL=sc;collapse($('sheetIn'),'job'+id);$('sheetIn').scrollTop=sc;};
 /* ===== TASKS ===== */
+function tkPeople(t){var a=[];if(t.owner_id)a.push(t.owner_id);(t.also||[]).forEach(function(x){if(a.indexOf(x)<0)a.push(x);});return a;}
+function tMine(t){return tkPeople(t).indexOf(S.me.id)>=0;}
+function tWho(t){var a=tkPeople(t);return a.length?a.map(function(x){return person(x).name;}).join(', '):'Anyone';}
+function tDueMs(t){return new Date(t.due+'T'+(t.due_time||'08:00')+':00').getTime();}
+function tIv(n,u){return (+n||0)*(u==='hours'?36e5:u==='weeks'?6048e5:864e5);}
+function tDue(){var d=today(),nw=Date.now();return S.tasks.filter(function(t){if(t.status==='done'||!t.due||!tMine(t))return false;var r=t.rem||{};return t.due<=d||(r.on!==false&&nw>=tDueMs(t)-tIv(r.lead,r.lead_unit));});}
+function tWhen(t){return dlbl(t.due)+(t.due_time?' '+tm(new Date(t.due+'T'+t.due_time+':00')):'');}
+function tRemTxt(t){var r=t.rem||{};if(!t.due)return '';if(r.on===false)return 'no reminders';var u=function(n,x){return n+' '+(n===1?x.slice(0,-1):x);};
+  return 'reminds '+(r.lead?u(r.lead,r.lead_unit)+' before':'when due')+(r.every?', then every '+u(r.every,r.every_unit):', once');}
+function taskBanner(){var a=tDue();if(!a.length)return '';var d=today(),od=a.filter(function(t){return t.due<d;}).length,td=a.filter(function(t){return t.due===d;}).length,up=a.length-od-td;
+  a.sort(function(x,y){return x.due<y.due?-1:x.due>y.due?1:x.priority-y.priority;});
+  return '<div class="card" style="border-color:var(--red);background:#fdecec"><b style="color:var(--red)">'+a.length+' task'+(a.length===1?'':'s')+' need'+(a.length===1?'s':'')+' attention</b><div class="sm">'+[od?od+' overdue':'',td?td+' due today':'',up?up+' coming up':''].filter(Boolean).join(' · ')+'</div><div class="list" style="margin-top:6px">'+a.slice(0,4).map(taskRow).join('')+'</div>'+(a.length>4?'<button class="b alt" style="margin:8px 0 0" onclick="go(\'tasks\')">See all '+a.length+'</button>':'')+'</div>';}
 function taskRow(t){
-  var steps=t.steps||[],dn=steps.filter(function(s){return s.done;}).length,j=job(t.job_id),o=t.owner_id?person(t.owner_id).name:'Anyone';
-  var due=t.due?(t.due<today()&&t.status!=='done'?'<span class="pill red">due '+dlbl(t.due)+'</span>':'<span class="pill gray">'+dlbl(t.due)+'</span>'):'';
+  var steps=t.steps||[],dn=steps.filter(function(s){return s.done;}).length,j=job(t.job_id),o=tWho(t);
+  var due=t.due?(t.status!=='done'&&t.due<today()?'<span class="pill red">due '+dlbl(t.due)+'</span>':t.status!=='done'&&t.due===today()?'<span class="pill amb">due today'+(t.due_time?' '+tm(new Date(t.due+'T'+t.due_time+':00')):'')+'</span>':'<span class="pill gray">'+tWhen(t)+'</span>'):'';
   var pr=t.priority===1?'<span class="pill red">!</span> ':'';
   return '<div class="row" style="align-items:flex-start"><div class="chk'+(t.status==='done'?' on':'')+'" onclick="event.stopPropagation();act(\'set_task_status\',{p_token:TOKEN,p_id:\''+t.id+'\',p_status:\''+(t.status==='done'?'todo':'done')+'\'})">'+(t.status==='done'?'✓':'')+'</div>'+
     '<div class="f tap" onclick="taskView(\''+t.id+'\')"><div class="'+(t.status==='done'?'done-t':'')+'">'+pr+esc(t.title)+'</div>'+
@@ -447,16 +459,16 @@ function taskRow(t){
 function vTasks(){
   var f=SUB.tf||'mine';
   var open=S.tasks.filter(function(t){return t.status!=='done';});
-  var list=f==='mine'?open.filter(function(t){return t.owner_id===S.me.id;}):f==='all'?open:f==='anyone'?open.filter(function(t){return !t.owner_id;}):S.tasks.filter(function(t){return t.status==='done';}).sort(function(a,b){return a.done_at<b.done_at?1:-1;});
+  var list=f==='mine'?open.filter(tMine):f==='all'?open:f==='anyone'?open.filter(function(t){return !tkPeople(t).length;}):S.tasks.filter(function(t){return t.status==='done';}).sort(function(a,b){return a.done_at<b.done_at?1:-1;});
   if(f!=='done')list.sort(function(a,b){return (a.priority-b.priority)||((a.due||'9')<(b.due||'9')?-1:(a.due||'9')>(b.due||'9')?1:0)||(a.sort-b.sort);});
-  var tabs=[['mine','Mine ('+open.filter(function(t){return t.owner_id===S.me.id;}).length+')'],['all','Everyone ('+open.length+')'],['anyone','Unassigned'],['done','Done']];
+  var tabs=[['mine','Mine ('+open.filter(tMine).length+')'],['all','Everyone ('+open.length+')'],['anyone','Unassigned'],['done','Done']];
   return '<div class="tabs">'+tabs.map(function(t){return '<button class="'+(f===t[0]?'on':'')+'" onclick="SUB.tf=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'+
     '<button class="b" style="margin:0 0 12px" onclick="taskForm(\'\')">+ New task</button>'+
     '<div class="card">'+(list.length?'<div class="list">'+list.map(taskRow).join('')+'</div>':'<div class="mut">Nothing here</div>')+'</div>';
 }
 function taskView(id){
   var t=S.tasks.filter(function(x){return x.id===id;})[0];if(!t)return;var j=job(t.job_id);
-  sheet('<h3>'+esc(t.title)+'</h3><div class="mut">'+esc(t.owner_id?person(t.owner_id).name:'Anyone')+(t.due?' · due '+dlbl(t.due):'')+(j?' · '+esc(jobName(j)):'')+' · added by '+esc(person(t.created_by).name)+'</div>'+
+  sheet('<h3>'+esc(t.title)+'</h3><div class="mut">'+esc(tWho(t))+(t.due?' · due '+tWhen(t)+' · '+tRemTxt(t):'')+(j?' · '+esc(jobName(j)):'')+' · added by '+esc(person(t.created_by).name)+'</div>'+
     (t.notes?'<p style="white-space:pre-wrap">'+esc(t.notes)+'</p>':'')+
     ((t.steps||[]).length?'<div class="list" style="margin-top:8px">'+t.steps.map(function(s){return '<div class="row tap" onclick="rpc(\'toggle_step\',{p_token:TOKEN,p_id:\''+s.id+'\'}).then(function(){return refresh(true);}).then(function(){taskView(\''+id+'\');})"><div class="chk'+(s.done?' on':'')+'">'+(s.done?'✓':'')+'</div><div class="f '+(s.done?'done-t':'')+'">'+esc(s.text)+'</div></div>';}).join('')+'</div>':'')+
     '<div class="grid2" style="margin-top:10px">'+
@@ -472,8 +484,13 @@ function taskForm(id){
   var t=id?S.tasks.filter(function(x){return x.id===id;})[0]:{title:'',notes:'',owner_id:S.me.id,due:'',priority:2,job_id:SUB.taskJob||'',steps:[]};
   draftSteps=(t.steps||[]).map(function(s){return {text:s.text,done:s.done};});
   sheet('<h3>'+(id?'Edit task':'New task')+'</h3><label>Task</label><input id="tt" value="'+esc(t.title)+'">'+
-    '<div class="grid2"><div><label>Who</label><select id="to"><option value="">Anyone</option>'+S.people.filter(function(p){return p.active;}).map(function(p){return '<option value="'+p.id+'"'+(p.id===t.owner_id?' selected':'')+'>'+esc(p.name)+'</option>';}).join('')+'</select></div>'+
-    '<div><label>Due</label><input type="date" id="td" value="'+(t.due||'')+'"></div></div>'+
+    '<label>Who (pick one or more) <button type="button" class="s" style="margin-left:6px" onclick="var c=$(\'twho\').querySelectorAll(\'input\'),all=true,i;for(i=0;i<c.length;i++)if(!c[i].checked)all=false;for(i=0;i<c.length;i++)c[i].checked=!all;">Everyone</button></label><div id="twho" style="display:flex;flex-wrap:wrap;gap:6px">'+S.people.filter(function(p){return p.active||tkPeople(t).indexOf(p.id)>=0;}).map(function(p){var on=tkPeople(t).indexOf(p.id)>=0;return '<label style="display:flex;align-items:center;gap:6px;margin:0;padding:7px 10px;border:1px solid var(--line);border-radius:99px;font-weight:500"><input type="checkbox" value="'+p.id+'" style="width:auto;margin:0"'+(on?' checked':'')+'>'+esc(p.name)+'</label>';}).join('')+'</div><div class="mut sm" style="margin-top:4px">Everyone checked is on the task and gets its reminders. Nobody checked means anyone can take it.</div>'+
+    '<div class="grid2"><div><label>Due</label><input type="date" id="td" value="'+(t.due||'')+'"></div><div><label>Time (optional)</label><input type="time" id="tdt" value="'+(t.due_time||'')+'"></div></div>'+
+    (function(){var r=t.rem||{on:true,lead:0,lead_unit:'days',every:1,every_unit:'days'},un=function(id,v){return '<select id="'+id+'">'+['hours','days','weeks'].map(function(x){return '<option'+(v===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>';};
+      return '<label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="tro" style="width:auto"'+(r.on!==false?' checked':'')+'> Email reminders</label>'+
+      '<div class="grid2"><div><label>Start reminding</label><div style="display:grid;grid-template-columns:70px 1fr;gap:6px"><input type="number" id="trl" min="0" max="999" inputmode="numeric" value="'+(r.lead||0)+'">'+un('trlu',r.lead_unit)+'</div><div class="mut sm">before it is due (0 = when due)</div></div>'+
+      '<div><label>Then again every</label><div style="display:grid;grid-template-columns:70px 1fr;gap:6px"><input type="number" id="tre" min="0" max="999" inputmode="numeric" value="'+(r.every==null?1:r.every)+'">'+un('treu',r.every_unit)+'</div><div class="mut sm">until it is done (0 = just once)</div></div></div>'+
+      '<div class="mut sm" style="margin-top:4px">Needs a due date. With no time, it counts as due at 8 AM. Emails go out on the hour, never between 9 PM and 6 AM. The task also shows in red at the top of the Clock tab once reminders start.</div>';})()+
     '<div class="grid2"><div><label>Priority</label><select id="tp"><option value="1"'+(t.priority===1?' selected':'')+'>High</option><option value="2"'+(t.priority===2?' selected':'')+'>Normal</option><option value="3"'+(t.priority===3?' selected':'')+'>Low</option></select></div>'+
     '<div><label>Job (optional)</label><select id="tj">'+jobOptions(t.job_id||'',true).replace('— pick a job —','None')+'</select></div></div>'+
     '<label>Notes</label><textarea id="tn">'+esc(t.notes||'')+'</textarea>'+
@@ -483,7 +500,7 @@ function taskForm(id){
 }
 function drawSteps(){$('stepsBox').innerHTML=draftSteps.map(function(s,i){return '<div class="row" style="margin-top:4px"><div class="f sm'+(s.done?' done-t':'')+'">• '+esc(s.text)+'</div><button class="s" onclick="draftSteps.splice('+i+',1);drawSteps()">✕</button></div>';}).join('');}
 function addStep(){var v=$('ns').value.trim();if(!v)return;draftSteps.push({text:v,done:false});$('ns').value='';drawSteps();}
-function saveTask(id){addStep();act('save_task',{p_token:TOKEN,t:{id:id,title:$('tt').value,owner_id:$('to').value,due:$('td').value,priority:$('tp').value,job_id:$('tj').value,notes:$('tn').value,steps:draftSteps}},function(){closeSheet();SUB.taskJob=null;toast('Saved');});}
+function saveTask(id){var tw;addStep();act('save_task',{p_token:TOKEN,t:{id:id,title:$('tt').value,owner_id:(tw=Array.prototype.slice.call($('twho').querySelectorAll('input:checked')).map(function(x){return x.value;}))[0]||'',also:tw.slice(1),due:$('td').value,due_time:$('tdt').value,rem_on:$('tro').checked,rem_lead:$('trl').value,rem_lead_unit:$('trlu').value,rem_every:$('tre').value,rem_every_unit:$('treu').value,priority:$('tp').value,job_id:$('tj').value,notes:$('tn').value,steps:draftSteps}},function(){closeSheet();SUB.taskJob=null;toast('Saved');});}
 
 /* ===== JOBS ===== */
 function jobChanges(id){return (S.changes||[]).filter(function(c){return c.job_id===id;});}
